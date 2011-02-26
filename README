@@ -1,0 +1,18 @@
+Antares
+Physical implementation tools for Xilinx FPGAs.
+
+(C) Copyright 2011 Sebastien Bourdeauducq.
+Released under GNU GPL version 3. See file COPYING.
+
+Build requirements:
+ * Clang
+ * CMake
+
+Build/installation instructions:
+ $ mkdir build
+ $ cd build
+ $ cmake ..
+ $ make
+ # make install
+
+Homepage: http://www.milkymist.org/llhdl
