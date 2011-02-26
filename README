@@ -15,4 +15,4 @@ Build/installation instructions:
  $ make
  # make install
 
-Homepage: http://www.milkymist.org/llhdl
+Homepage: http://www.milkymist.org/fpgatools
