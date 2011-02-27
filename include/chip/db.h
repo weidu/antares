@@ -57,6 +57,7 @@ struct site_type {
 };
 
 struct db {
+	char *chip_ref;
 	struct chip chip;
 	int n_tile_types;
 	struct tile_type *tile_types;

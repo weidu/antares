@@ -18,8 +18,10 @@ enum {
 struct xdlrc_tokenizer *xdlrc_create_tokenizer(const char *filename);
 void xdlrc_free_tokenizer(struct xdlrc_tokenizer *t);
 char *xdlrc_get_token(struct xdlrc_tokenizer *t);
+char *xdlrc_get_token_noeof(struct xdlrc_tokenizer *t);
 void xdlrc_get_token_par(struct xdlrc_tokenizer *t, int open);
 int xdlrc_get_token_int(struct xdlrc_tokenizer *t);
 int xdlrc_get_token_dir(struct xdlrc_tokenizer *t);
+void xdlrc_close_parenthese(struct xdlrc_tokenizer *t);
 
 #endif /* __XDLRC_H */

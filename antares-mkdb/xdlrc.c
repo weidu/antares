@@ -7,7 +7,7 @@
 
 static int xdlrc_is_eol(char c)
 {
-	return (c == '#') || (c == '\n') || (c == 0);
+	return (c == '\n') || (c == 0);
 }
 
 struct xdlrc_tokenizer *xdlrc_create_tokenizer(const char *filename)
@@ -36,9 +36,11 @@ static int xdlrc_newline(struct xdlrc_tokenizer *t)
 {
 	int r;
 
-	r = getline(&t->line, &t->n, t->fd);
-	if(r == -1)
-		return 0;
+	do {
+		r = getline(&t->line, &t->n, t->fd);
+		if(r == -1)
+			return 0;
+	} while(*t->line == '#');
 	t->start = t->line;
 	return 1;
 }
@@ -75,11 +77,23 @@ char *xdlrc_get_token(struct xdlrc_tokenizer *t)
 	return ret;
 }
 
-void xdlrc_get_token_par(struct xdlrc_tokenizer *t, int open)
+char *xdlrc_get_token_noeof(struct xdlrc_tokenizer *t)
 {
 	char *s;
 	
 	s = xdlrc_get_token(t);
+	if(s == NULL) {
+		fprintf(stderr, "Unexpected EOF\n");
+		exit(EXIT_FAILURE);
+	}
+	return s;
+}
+
+void xdlrc_get_token_par(struct xdlrc_tokenizer *t, int open)
+{
+	char *s;
+	
+	s = xdlrc_get_token_noeof(t);
 	if(strcmp(s, open ? "(" : ")") != 0) {
 		fprintf(stderr, "Expected parenthese, got: '%s'\n", s);
 		exit(EXIT_FAILURE);
@@ -93,7 +107,7 @@ int xdlrc_get_token_int(struct xdlrc_tokenizer *t)
 	char *c;
 	int r;
 	
-	s = xdlrc_get_token(t);
+	s = xdlrc_get_token_noeof(t);
 	r = strtoul(s, &c, 0);
 	if(*c != 0) {
 		fprintf(stderr, "Expected integer, got: '%s'\n", s);
@@ -119,4 +133,18 @@ int xdlrc_get_token_dir(struct xdlrc_tokenizer *t)
 	}
 	free(s);
 	return r;
+}
+
+void xdlrc_close_parenthese(struct xdlrc_tokenizer *t)
+{
+	int counter;
+	char *s;
+	
+	counter = 0;
+	while(counter != -1) {
+		s = xdlrc_get_token_noeof(t);
+		if(strcmp(s, "(") == 0) counter++;
+		else if(strcmp(s, ")") == 0) counter--;
+		free(s);
+	}
 }

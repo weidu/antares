@@ -10,6 +10,7 @@ struct db *db_create(int n_tile_types, int n_site_types, int w, int h)
 	struct db *db;
 	
 	db = alloc_type(struct db);
+	db->chip_ref = NULL;
 	db->chip.w = w;
 	db->chip.h = h;
 	db->chip.tiles = alloc_size0(w*h*sizeof(struct tile));
@@ -53,6 +54,7 @@ void db_free(struct db *db)
 	int i, j;
 	struct wire *w1, *w2;
 	
+	free(db->chip_ref);
 	for(i=0;i<db->chip.w*db->chip.h;i++)
 		free(db->chip.tiles[i].sites);
 	free(db->chip.tiles);
