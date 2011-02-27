@@ -106,7 +106,9 @@ static struct e_tile_type *register_tile_type(struct registry *reg, char *t)
 		tt = tt->next;
 	}
 	
+	#ifdef DEBUG
 	printf("Tile type: %s\n", t);
+	#endif
 	
 	tt = alloc_type(struct e_tile_type);
 	tt->name = stralloc(t);
@@ -130,7 +132,9 @@ static struct e_name *register_wire(struct e_tile_type *tt, char *t)
 		wn = wn->next;
 	}
 	
+	#ifdef DEBUG
 	printf("Tile: %s Wire: %s\n", tt->name, t);
+	#endif
 	
 	wn = alloc_type(struct e_name);
 	wn->name = stralloc(t);
@@ -152,7 +156,9 @@ static struct e_site_type *register_site_type(struct registry *reg, char *t)
 		st = st->next;
 	}
 	
+	#ifdef DEBUG
 	printf("Site type: %s\n", t);
+	#endif
 	
 	st = alloc_type(struct e_site_type);
 	st->name = stralloc(t);
@@ -178,7 +184,9 @@ static struct e_name *register_site_output(struct e_site_type *st, char *t)
 		pn = pn->next;
 	}
 	
+	#ifdef DEBUG
 	printf("Site: %s Output: %s\n", st->name, t);
+	#endif
 	
 	pn = alloc_type(struct e_name);
 	pn->name = stralloc(t);
@@ -200,7 +208,9 @@ static struct e_name *register_site_input(struct e_site_type *st, char *t)
 		pn = pn->next;
 	}
 	
+	#ifdef DEBUG
 	printf("Site: %s Input: %s\n", st->name, t);
+	#endif
 	
 	pn = alloc_type(struct e_name);
 	pn->name = stralloc(t);
@@ -268,6 +278,50 @@ static void handle_wire(struct registry *reg, struct e_tile_type *tt, struct xdl
 	xdlrc_close_parenthese(t);
 }
 
+static void transfer_to_db(struct db *db, struct registry *reg)
+{
+	int i, j;
+	struct e_site_type *st;
+	struct e_tile_type *tt;
+	struct e_name *w;
+	
+	/* 1. Transfer site types */
+	st = reg->shead;
+	for(i=0;i<reg->n_site_types;i++) {
+		db->site_types[i].name = stralloc(st->name);
+		db->site_types[i].n_inputs = st->n_inputs;
+		db->site_types[i].input_pin_names = alloc_size(st->n_inputs*sizeof(char *));
+		w = st->ihead;
+		for(j=0;j<st->n_inputs;j++) {
+			db->site_types[i].input_pin_names[j] = stralloc(w->name);
+			w = w->next;
+		}
+		db->site_types[i].n_outputs = st->n_outputs;
+		db->site_types[i].output_pin_names = alloc_size(st->n_outputs*sizeof(char *));
+		w = st->ohead;
+		for(j=0;j<st->n_outputs;j++) {
+			db->site_types[i].output_pin_names[j] = stralloc(w->name);
+			w = w->next;
+		}
+		st = st->next;
+	}
+	
+	/* 2. Transfer tile types (site type indexes in DB are needed for this) */
+	tt = reg->thead;
+	for(i=0;i<reg->n_tile_types;i++) {
+		db->tile_types[i].name = stralloc(tt->name);
+		/* TODO: n_sites, sites */
+		db->tile_types[i].n_tile_wires = tt->n_tile_wires;
+		db->tile_types[i].tile_wire_names = alloc_size(tt->n_tile_wires*sizeof(char *));
+		w = tt->whead;
+		for(j=0;j<tt->n_tile_wires;j++) {
+			db->tile_types[i].tile_wire_names[j] = stralloc(w->name);
+			w = w->next;
+		}
+		tt = tt->next;
+	}
+}
+
 static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 {
 	struct registry *reg;
@@ -275,6 +329,7 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 	int i;
 	char *s;
 	struct e_tile_type *tile_type;
+	struct db *db;
 	
 	reg = create_registry();
 	h = xdlrc_get_token_int(t);
@@ -316,8 +371,17 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 		}
 	}
 	xdlrc_close_parenthese(t);
+	
+	#ifdef DEBUG
+	printf("n_tile_types=%d n_site_types=%d w=%d h=%d\n", reg->n_tile_types, reg->n_site_types, w, h);
+	#endif
+	db = db_create(reg->n_tile_types, reg->n_site_types, w, h);
+	
+	transfer_to_db(db, reg);
+	
 	free_registry(reg);
-	return db_create(20, 14, w, h);
+	
+	return db;
 }
 
 struct db *typelist_create_db(const char *filename)
@@ -340,12 +404,18 @@ struct db *typelist_create_db(const char *filename)
 	free(s);
 
 	s = xdlrc_get_token_noeof(t);
+	#ifdef DEBUG
 	printf("XDLRC version: %s\n", s);
+	#endif
 	free(s);
 	chip = xdlrc_get_token_noeof(t);
+	#ifdef DEBUG
 	printf("Chip: %s\n", chip);
+	#endif
 	s = xdlrc_get_token_noeof(t);
+	#ifdef DEBUG
 	printf("Family: %s\n", s);
+	#endif
 	free(s);
 
 	while(1) {
