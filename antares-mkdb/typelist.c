@@ -7,22 +7,24 @@
 
 #include "xdlrc.h"
 
-struct e_tile_type {
+struct e_name {
 	char *name;
-	struct e_tile_type *next;
+	struct e_name *next;
 };
 
-struct e_pin_name {
+struct e_tile_type {
 	char *name;
-	struct e_pin_name *next;
+	int n_tile_wires;
+	struct e_name *whead;
+	struct e_tile_type *next;
 };
 
 struct e_site_type {
 	char *name;
 	int n_inputs;
-	struct e_pin_name *ihead;
+	struct e_name *ihead;
 	int n_outputs;
-	struct e_pin_name *ohead;
+	struct e_name *ohead;
 	struct e_site_type *next;
 };
 
@@ -46,14 +48,29 @@ static struct registry *create_registry()
 	return reg;
 }
 
+static void free_e_name(struct e_name *head)
+{
+	struct e_name *n1, *n2;
+	
+	n1 = head;
+	while(n1 != NULL) {
+		n2 = n1->next;
+		free(n1);
+		n1 = n2;
+	}
+}
+
 static void free_site_type(struct e_site_type *st)
 {
+	free_e_name(st->ihead);
+	free_e_name(st->ohead);
 	free(st->name);
 	free(st);
 }
 
 static void free_tile_type(struct e_tile_type *tt)
 {
+	free_e_name(tt->whead);
 	free(tt->name);
 	free(tt);
 }
@@ -93,11 +110,35 @@ static struct e_tile_type *register_tile_type(struct registry *reg, char *t)
 	
 	tt = alloc_type(struct e_tile_type);
 	tt->name = stralloc(t);
+	tt->n_tile_wires = 0;
+	tt->whead = NULL;
 	tt->next = reg->thead;
 	reg->thead = tt;
 	reg->n_tile_types++;
 	
 	return tt;
+}
+
+static struct e_name *register_wire(struct e_tile_type *tt, char *t)
+{
+	struct e_name *wn;
+	
+	wn = tt->whead;
+	while(wn != NULL) {
+		if(strcmp(wn->name, t) == 0)
+			return wn;
+		wn = wn->next;
+	}
+	
+	printf("Tile: %s Wire: %s\n", tt->name, t);
+	
+	wn = alloc_type(struct e_name);
+	wn->name = stralloc(t);
+	wn->next = tt->whead;
+	tt->whead = wn;
+	tt->n_tile_wires++;
+	
+	return wn;
 }
 
 static struct e_site_type *register_site_type(struct registry *reg, char *t)
@@ -126,9 +167,9 @@ static struct e_site_type *register_site_type(struct registry *reg, char *t)
 	return st;
 }
 
-static struct e_pin_name *register_site_output(struct e_site_type *st, char *t)
+static struct e_name *register_site_output(struct e_site_type *st, char *t)
 {
-	struct e_pin_name *pn;
+	struct e_name *pn;
 	
 	pn = st->ohead;
 	while(pn != NULL) {
@@ -139,7 +180,7 @@ static struct e_pin_name *register_site_output(struct e_site_type *st, char *t)
 	
 	printf("Site: %s Output: %s\n", st->name, t);
 	
-	pn = alloc_type(struct e_pin_name);
+	pn = alloc_type(struct e_name);
 	pn->name = stralloc(t);
 	pn->next = st->ohead;
 	st->ohead = pn;
@@ -148,9 +189,9 @@ static struct e_pin_name *register_site_output(struct e_site_type *st, char *t)
 	return pn;
 }
 
-static struct e_pin_name *register_site_input(struct e_site_type *st, char *t)
+static struct e_name *register_site_input(struct e_site_type *st, char *t)
 {
-	struct e_pin_name *pn;
+	struct e_name *pn;
 	
 	pn = st->ihead;
 	while(pn != NULL) {
@@ -161,7 +202,7 @@ static struct e_pin_name *register_site_input(struct e_site_type *st, char *t)
 	
 	printf("Site: %s Input: %s\n", st->name, t);
 	
-	pn = alloc_type(struct e_pin_name);
+	pn = alloc_type(struct e_name);
 	pn->name = stralloc(t);
 	pn->next = st->ihead;
 	st->ihead = pn;
@@ -192,7 +233,7 @@ static void handle_primitive_site(struct registry *reg, struct xdlrc_tokenizer *
 				
 				pin_name = xdlrc_get_token_noeof(t);
 				pin_type = xdlrc_get_token_noeof(t);
-				free(xdlrc_get_token_noeof(t)); /* pinwire name */
+				free(xdlrc_get_token_noeof(t)); /* Pinwire name. Registered later as regular tile wire. */
 				if(strcmp(pin_type, "input") == 0)
 					register_site_input(st, pin_name);
 				else if(strcmp(pin_type, "output") == 0)
@@ -217,8 +258,13 @@ static void handle_primitive_site(struct registry *reg, struct xdlrc_tokenizer *
 	}
 }
 
-static void handle_wire(struct registry *reg, struct e_tile_type *tile_type, struct xdlrc_tokenizer *t)
+static void handle_wire(struct registry *reg, struct e_tile_type *tt, struct xdlrc_tokenizer *t)
 {
+	char *s;
+	
+	s = xdlrc_get_token_noeof(t);
+	register_wire(tt, s);
+	free(s);
 	xdlrc_close_parenthese(t);
 }
 
