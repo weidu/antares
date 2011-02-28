@@ -4,6 +4,7 @@
 struct wire;
 
 struct site {
+	char *name;			/* < "A3", "G5", "SLICE_X2Y125", ... */
 	struct wire *input_wires;	/* < array of wires the inputs are connected to */
 	struct wire *output_wires;	/* < array of wires the outputs are connected to */
 };
@@ -69,5 +70,6 @@ struct db *db_create(int n_tile_types, int n_site_types, int w, int h);
 void db_free(struct db *db);
 
 int db_resolve_site(struct db *db, const char *name);
+int db_resolve_tile(struct db *db, const char *name);
 
 #endif

@@ -55,8 +55,14 @@ void db_free(struct db *db)
 	struct wire *w1, *w2;
 	
 	free(db->chip_ref);
-	for(i=0;i<db->chip.w*db->chip.h;i++)
+	for(i=0;i<db->chip.w*db->chip.h;i++) {
+		for(j=0;j<db->tile_types[db->chip.tiles[i].type].n_sites;j++) {
+			free(db->chip.tiles[i].sites[j].name);
+			free(db->chip.tiles[i].sites[j].input_wires);
+			free(db->chip.tiles[i].sites[j].output_wires);
+		}
 		free(db->chip.tiles[i].sites);
+	}
 	free(db->chip.tiles);
 	
 	w1 = db->chip.whead;
@@ -95,6 +101,16 @@ int db_resolve_site(struct db *db, const char *name)
 	
 	for(i=0;i<db->n_site_types;i++)
 		if(strcmp(db->site_types[i].name, name) == 0)
+			return i;
+	return -1;
+}
+
+int db_resolve_tile(struct db *db, const char *name)
+{
+	int i;
+	
+	for(i=0;i<db->n_tile_types;i++)
+		if(strcmp(db->tile_types[i].name, name) == 0)
 			return i;
 	return -1;
 }

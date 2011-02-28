@@ -5,6 +5,7 @@
 #include <banner/banner.h>
 
 #include "typelist.h"
+#include "chip.h"
 
 int main(int argc, char *argv[])
 {
@@ -17,6 +18,9 @@ int main(int argc, char *argv[])
 	
 	printf("Listing types...\n");
 	db = typelist_create_db(argv[1]);
+	printf("Listing chip components...\n");
+	chip_update_db(db, argv[1]);
+	printf("Writing output file...\n");
 	db_free(db);
 	
 	return 0;

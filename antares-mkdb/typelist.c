@@ -7,6 +7,7 @@
 #include <chip/db.h>
 
 #include "xdlrc.h"
+#include "typelist.h"
 
 struct e_name {
 	char *name;
