@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -12,8 +13,17 @@ struct e_name {
 	struct e_name *next;
 };
 
+struct e_site_type;
+
+struct e_tile_site {
+	struct e_site_type *type;
+	struct e_tile_site *next;
+};
+
 struct e_tile_type {
 	char *name;
+	int n_tile_sites;
+	struct e_tile_site *shead;
 	int n_tile_wires;
 	struct e_name *whead;
 	struct e_tile_type *next;
@@ -70,6 +80,14 @@ static void free_site_type(struct e_site_type *st)
 
 static void free_tile_type(struct e_tile_type *tt)
 {
+	struct e_tile_site *ts1, *ts2;
+	
+	ts1 = tt->shead;
+	while(ts1 != NULL) {
+		ts2 = ts1->next;
+		free(ts1);
+		ts1 = ts2;
+	}
 	free_e_name(tt->whead);
 	free(tt->name);
 	free(tt);
@@ -112,6 +130,8 @@ static struct e_tile_type *register_tile_type(struct registry *reg, char *t)
 	
 	tt = alloc_type(struct e_tile_type);
 	tt->name = stralloc(t);
+	tt->n_tile_sites = 0;
+	tt->shead = NULL;
 	tt->n_tile_wires = 0;
 	tt->whead = NULL;
 	tt->next = reg->thead;
@@ -173,6 +193,30 @@ static struct e_site_type *register_site_type(struct registry *reg, char *t)
 	return st;
 }
 
+static struct e_tile_site *register_tile_site(struct e_tile_type *tt, struct e_site_type *st)
+{
+	struct e_tile_site *ts;
+	
+	ts = tt->shead;
+	while(ts != NULL) {
+		if(ts->type == st)
+			return ts;
+		ts = ts->next;
+	}
+	
+	#ifdef DEBUG
+	printf("Tile: %s Site: %s\n", tt->name, st->name);
+	#endif
+	
+	ts = alloc_type(struct e_tile_site);
+	ts->type = st;
+	ts->next = tt->shead;
+	tt->shead = ts;
+	tt->n_tile_sites++;
+	
+	return ts;
+}
+
 static struct e_name *register_site_output(struct e_site_type *st, char *t)
 {
 	struct e_name *pn;
@@ -221,7 +265,7 @@ static struct e_name *register_site_input(struct e_site_type *st, char *t)
 	return pn;
 }
 
-static void handle_primitive_site(struct registry *reg, struct xdlrc_tokenizer *t)
+static void handle_primitive_site(struct registry *reg, struct e_tile_type *tt, struct xdlrc_tokenizer *t)
 {
 	char *s;
 	struct e_site_type *st;
@@ -229,6 +273,7 @@ static void handle_primitive_site(struct registry *reg, struct xdlrc_tokenizer *
 	free(xdlrc_get_token_noeof(t)); /* Name, e.g. "BUFIO2_X4Y26" */
 	s = xdlrc_get_token_noeof(t); /* Type */
 	st = register_site_type(reg, s);
+	register_tile_site(tt, st);
 	free(s);
 	free(xdlrc_get_token_noeof(t)); /* bonded/internal */
 	xdlrc_get_token_int(t); /* Number of elements */
@@ -283,6 +328,7 @@ static void transfer_to_db(struct db *db, struct registry *reg)
 	int i, j;
 	struct e_site_type *st;
 	struct e_tile_type *tt;
+	struct e_tile_site *ts;
 	struct e_name *w;
 	
 	/* 1. Transfer site types */
@@ -310,7 +356,14 @@ static void transfer_to_db(struct db *db, struct registry *reg)
 	tt = reg->thead;
 	for(i=0;i<reg->n_tile_types;i++) {
 		db->tile_types[i].name = stralloc(tt->name);
-		/* TODO: n_sites, sites */
+		db->tile_types[i].n_sites = tt->n_tile_sites;
+		db->tile_types[i].sites = alloc_size(tt->n_tile_sites*sizeof(int));
+		ts = tt->shead;
+		for(j=0;j<tt->n_tile_sites;j++) {
+			db->tile_types[i].sites[j] = db_resolve_site(db, ts->type->name);
+			assert(db->tile_types[i].sites[j] != -1);
+			ts = ts->next;
+		}
 		db->tile_types[i].n_tile_wires = tt->n_tile_wires;
 		db->tile_types[i].tile_wire_names = alloc_size(tt->n_tile_wires*sizeof(char *));
 		w = tt->whead;
@@ -328,7 +381,7 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 	int w, h;
 	int i;
 	char *s;
-	struct e_tile_type *tile_type;
+	struct e_tile_type *tt;
 	struct db *db;
 	
 	reg = create_registry();
@@ -346,7 +399,7 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 		xdlrc_get_token_int(t); /* tile Y */
 		free(xdlrc_get_token(t)); /* tile name */
 		s = xdlrc_get_token(t); /* tile type */
-		tile_type = register_tile_type(reg, s);
+		tt = register_tile_type(reg, s);
 		free(s);
 		xdlrc_get_token_int(t); /* number of sites */
 		while(1) {
@@ -355,9 +408,9 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 				free(s);
 				s = xdlrc_get_token_noeof(t);
 				if(strcmp(s, "primitive_site") == 0)
-					handle_primitive_site(reg, t);
+					handle_primitive_site(reg, tt, t);
 				else if(strcmp(s, "wire") == 0)
-					handle_wire(reg, tile_type, t);
+					handle_wire(reg, tt, t);
 				else
 					xdlrc_close_parenthese(t);
 				free(s);

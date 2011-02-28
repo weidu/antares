@@ -68,4 +68,6 @@ struct db {
 struct db *db_create(int n_tile_types, int n_site_types, int w, int h);
 void db_free(struct db *db);
 
+int db_resolve_site(struct db *db, const char *name);
+
 #endif

@@ -89,3 +89,12 @@ void db_free(struct db *db)
 	free(db);
 }
 
+int db_resolve_site(struct db *db, const char *name)
+{
+	int i;
+	
+	for(i=0;i<db->n_site_types;i++)
+		if(strcmp(db->site_types[i].name, name) == 0)
+			return i;
+	return -1;
+}
