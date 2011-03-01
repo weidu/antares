@@ -3,10 +3,11 @@
 
 struct wire;
 
+/* HACK: we use long ints here so they can be casted to and from pointers even on 64-bit platforms */
 struct site {
 	char *name;			/* < "A3", "G5", "SLICE_X2Y125", ... */
-	struct wire *input_wires;	/* < array of wires the inputs are connected to */
-	struct wire *output_wires;	/* < array of wires the outputs are connected to */
+	long int *input_wires;		/* < array of wires (offsets in the wire array) the inputs are connected to */
+	long int *output_wires;		/* < array of wires (offsets in the wire array) the outputs are connected to */
 };
 
 struct tile {
@@ -17,28 +18,28 @@ struct tile {
 };
 
 struct pip {
-	struct wire *endpoint;		/* < destination wire of this pip */
+	int endpoint;			/* < destination wire of this pip (offset in the chip's wire array) */
 	int bidir;			/* < is this pip bidirectional? (nb. two entries are created) */
-	struct pip *next;		/* < next pip in this tile with this wire as start point */
 };
 
 struct tile_wire {
-	struct tile *tile;		/* < current tile */
+	int tile;			/* < current tile (offset in the chip's tiles array) */
 	int name;			/* < how this wire is named in the current tile */
-	struct pip *phead;		/* < head of the list of pips in this tile with this wire as start point */
-	struct tile_wire *next;		/* < next tile wire for this wire */
+	int n_pips;			/* < number of pips with this wire as start point */
+	struct pip *pips;		/* < array of those pips */
 };
 
 struct wire {
-	struct tile_wire *whead;	/* < first tile wire for this wire */
-	struct wire *next;		/* < next wire in the chip */
+	int n_tile_wires;		/* < number of tile wires this wire is made of */
+	struct tile_wire *tile_wires;	/* < array of tile wires */
 };
 
 struct chip {
 	int w;				/* < number of tiles in the X direction */
 	int h;				/* < number of tiles in the Y direction */
 	struct tile *tiles;		/* < array of tiles */
-	struct wire *whead;		/* < linked list of wires */
+	int n_wires;			/* < number of wires */
+	struct wire *wires;		/* < array of wires */
 };
 
 struct tile_type {
@@ -68,8 +69,12 @@ struct db {
 
 struct db *db_create(int n_tile_types, int n_site_types, int w, int h);
 void db_free(struct db *db);
+void db_alloc_tile(struct db *db, struct tile *tile);
 
 int db_resolve_site(struct db *db, const char *name);
 int db_resolve_tile(struct db *db, const char *name);
+int db_resolve_input_pin(struct site_type *st, const char *name);
+int db_resolve_output_pin(struct site_type *st, const char *name);
+int db_get_unused_site_in_tile(struct db *db, struct tile *tile, int st);
 
 #endif

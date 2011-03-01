@@ -121,7 +121,7 @@ static struct e_tile_type *register_tile_type(struct registry *reg, char *t)
 	tt = reg->thead;
 	while(tt != NULL) {
 		if(strcmp(tt->name, t) == 0)
-			return tt;
+			return NULL;
 		tt = tt->next;
 	}
 	
@@ -197,13 +197,6 @@ static struct e_site_type *register_site_type(struct registry *reg, char *t)
 static struct e_tile_site *register_tile_site(struct e_tile_type *tt, struct e_site_type *st)
 {
 	struct e_tile_site *ts;
-	
-	ts = tt->shead;
-	while(ts != NULL) {
-		if(ts->type == st)
-			return ts;
-		ts = ts->next;
-	}
 	
 	#ifdef DEBUG
 	printf("Tile: %s Site: %s\n", tt->name, st->name);
@@ -402,6 +395,11 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 		s = xdlrc_get_token(t); /* tile type */
 		tt = register_tile_type(reg, s);
 		free(s);
+		if(tt == NULL) {
+			/* Tile type is already known */
+			xdlrc_close_parenthese(t);
+			continue;
+		}
 		xdlrc_get_token_int(t); /* number of sites */
 		while(1) {
 			s = xdlrc_get_token_noeof(t);

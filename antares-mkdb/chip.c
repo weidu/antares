@@ -7,19 +7,81 @@
 #include <chip/db.h>
 
 #include "xdlrc.h"
+#include "connectivity.h"
 #include "chip.h"
 
-static void handle_primitive_site(struct db *db, struct tile *tile, struct xdlrc_tokenizer *t)
+static void handle_primitive_site(struct db *db, struct conn *c, struct tile *tile, struct xdlrc_tokenizer *t)
+{
+	char *s;
+	char *name;
+	char *stype;
+	int index;
+	struct site *site;
+	struct site_type *site_type;
+	
+	name = xdlrc_get_token_noeof(t);
+	stype = xdlrc_get_token_noeof(t);
+	index = db_get_unused_site_in_tile(db, tile, db_resolve_site(db, stype));
+	if(index == -1) {
+		fprintf(stderr, "Failed to find a free '%s' site in tile\n", stype);
+		exit(EXIT_FAILURE);
+	}
+	free(stype);
+	site = &tile->sites[index];
+	site_type = &db->site_types[db->tile_types[tile->type].sites[index]];
+	site->name = name;
+	
+	free(xdlrc_get_token_noeof(t)); /* bonded/unbonded/internal */
+	xdlrc_get_token_int(t); /* number of pins */
+	
+	while(1) {
+		s = xdlrc_get_token_noeof(t);
+		if(strcmp(s, "(") == 0) {
+			free(s);
+			s = xdlrc_get_token_noeof(t);
+			if(strcmp(s, "pinwire") == 0) {
+				char *pin_name;
+				char *pin_type;
+				char *pinwire_name;
+				
+				pin_name = xdlrc_get_token_noeof(t);
+				pin_type = xdlrc_get_token_noeof(t);
+				pinwire_name = xdlrc_get_token_noeof(t);
+				xdlrc_get_token_par(t, 0);
+				if(strcmp(pin_type, "input") == 0) {
+					index = db_resolve_input_pin(site_type, pin_name);
+					assert(index != -1);
+					site->input_wires[index] = (long int)conn_get_wire_tile(c, tile, pinwire_name);
+				} else if(strcmp(pin_type, "output") == 0) {
+					index = db_resolve_output_pin(site_type, pin_name);
+					assert(index != -1);
+					site->output_wires[index] = (long int)conn_get_wire_tile(c, tile, pinwire_name);
+				} else {
+					fprintf(stderr, "Unknown site pin type: '%s'\n", pin_type);
+					exit(EXIT_FAILURE);
+				}
+				free(pin_name);
+				free(pin_type);
+				free(pinwire_name);
+			} else
+				xdlrc_close_parenthese(t);
+			free(s);
+		} else if(strcmp(s, ")") == 0) {
+			free(s);
+			break;
+		} else {
+			fprintf(stderr, "Expected parenthese, got '%s'\n", s);
+			exit(EXIT_FAILURE);
+		}
+	}
+}
+
+static void handle_wire(struct db *db, struct conn *c, struct tile *tile, struct xdlrc_tokenizer *t)
 {
 	xdlrc_close_parenthese(t);
 }
 
-static void handle_wire(struct db *db, struct tile *tile, struct xdlrc_tokenizer *t)
-{
-	xdlrc_close_parenthese(t);
-}
-
-static void handle_pip(struct db *db, struct tile *tile, struct xdlrc_tokenizer *t)
+static void handle_pip(struct db *db, struct conn *c, struct tile *tile, struct xdlrc_tokenizer *t)
 {
 	xdlrc_close_parenthese(t);
 }
@@ -58,7 +120,7 @@ static void parse_tile_name(struct db *db, char *tile_name, int *type, int *x, i
 	}
 }
 
-static void handle_tiles(struct db *db, struct xdlrc_tokenizer *t)
+static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *t)
 {
 	int x, y;
 	char *s;
@@ -81,20 +143,20 @@ static void handle_tiles(struct db *db, struct xdlrc_tokenizer *t)
 			s = xdlrc_get_token(t); /* tile name */
 			parse_tile_name(db, s, &db->chip.tiles[offset].type, &db->chip.tiles[offset].x, &db->chip.tiles[offset].y);
 			free(s);
+			db_alloc_tile(db, &db->chip.tiles[offset]);
 			free(xdlrc_get_token(t)); /* tile type */
 			xdlrc_get_token_int(t); /* number of sites */
-			db->chip.tiles[offset].sites = alloc_size0(db->tile_types[db->chip.tiles[offset].type].n_sites);
 			while(1) {
 				s = xdlrc_get_token_noeof(t);
 				if(strcmp(s, "(") == 0) {
 					free(s);
 					s = xdlrc_get_token_noeof(t);
 					if(strcmp(s, "primitive_site") == 0)
-						handle_primitive_site(db, &db->chip.tiles[offset], t);
+						handle_primitive_site(db, c, &db->chip.tiles[offset], t);
 					else if(strcmp(s, "wire") == 0)
-						handle_wire(db, &db->chip.tiles[offset], t);
+						handle_wire(db, c, &db->chip.tiles[offset], t);
 					else if(strcmp(s, "pip") == 0)
-						handle_pip(db, &db->chip.tiles[offset], t);
+						handle_pip(db, c, &db->chip.tiles[offset], t);
 					else
 						xdlrc_close_parenthese(t);
 					free(s);
@@ -114,6 +176,7 @@ void chip_update_db(struct db *db, const char *filename)
 {
 	struct xdlrc_tokenizer *t;
 	char *s;
+	struct conn *c;
 	
 	t = xdlrc_create_tokenizer(filename);
 	
@@ -129,13 +192,15 @@ void chip_update_db(struct db *db, const char *filename)
 	free(xdlrc_get_token_noeof(t)); /* Chip */
 	free(xdlrc_get_token_noeof(t)); /* Family */
 
+	c = NULL; // TODO
+
 	while(1) {
 		s = xdlrc_get_token_noeof(t);
 		if(strcmp(s, "(") == 0) {
 			free(s);
 			s = xdlrc_get_token(t);
 			if(strcmp(s, "tiles") == 0)
-				handle_tiles(db, t);
+				handle_tiles(db, c, t);
 			else
 				xdlrc_close_parenthese(t);
 			free(s);
