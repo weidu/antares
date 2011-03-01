@@ -130,6 +130,16 @@ int db_resolve_output_pin(struct site_type *st, const char *name)
 	return -1;
 }
 
+struct tile *db_lookup_tile(struct db *db, int type, int x, int y)
+{
+	int i;
+	
+	for(i=0;i<db->chip.w*db->chip.h;i++)
+		if((db->chip.tiles[i].type == type) && (db->chip.tiles[i].x == x) && (db->chip.tiles[i].y == y))
+			return &db->chip.tiles[i];
+	return NULL;
+}
+
 int db_get_unused_site_in_tile(struct db *db, struct tile *tile, int st)
 {
 	int i;

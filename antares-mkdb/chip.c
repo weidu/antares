@@ -10,6 +10,40 @@
 #include "connectivity.h"
 #include "chip.h"
 
+static void parse_tile_name(struct db *db, char *tile_name, int *type, int *x, int *y)
+{
+	char *c;
+	
+	c = strrchr(tile_name, '_');
+	if(c == NULL) {
+		fprintf(stderr, "Unexpected tile name: '%s'\n", tile_name);
+		exit(EXIT_FAILURE);
+	}
+	*c = 0;
+	*type = db_resolve_tile(db, tile_name);
+	if(*type == -1) {
+		fprintf(stderr, "Unexpected tile type: '%s'\n'", tile_name);
+		exit(EXIT_FAILURE);
+	}
+	c++;
+	if(*c != 'X') {
+		fprintf(stderr, "Unexpected tile position (X): '%s'\n'", c);
+		exit(EXIT_FAILURE);
+	}
+	c++;
+	*x = strtoul(c, &c, 10);
+	if(*c != 'Y') {
+		fprintf(stderr, "Unexpected tile position (Y): '%s'\n'", c);
+		exit(EXIT_FAILURE);
+	}
+	c++;
+	*y = strtoul(c, &c, 10);
+	if(*c != 0) {
+		fprintf(stderr, "Unexpected tile position (end): '%s'\n'", c);
+		exit(EXIT_FAILURE);
+	}
+}
+
 static void handle_primitive_site(struct db *db, struct conn *c, struct tile *tile, struct xdlrc_tokenizer *t)
 {
 	char *s;
@@ -76,48 +110,73 @@ static void handle_primitive_site(struct db *db, struct conn *c, struct tile *ti
 	}
 }
 
+/* TODO: this should be done in a second pass */
 static void handle_wire(struct db *db, struct conn *c, struct tile *tile, struct xdlrc_tokenizer *t)
 {
-	xdlrc_close_parenthese(t);
+	char *name;
+	struct c_wire *wire;
+	char *s;
+	struct c_wire *wire2;
+	int type, x, y;
+	struct tile *neighbor;
+	
+	name = xdlrc_get_token_noeof(t);
+	wire = conn_get_wire_tile(c, tile, name);
+	free(name);
+	xdlrc_get_token_int(t);
+	while(1) {
+		s = xdlrc_get_token_noeof(t);
+		if(strcmp(s, "(") == 0) {
+			free(s);
+			s = xdlrc_get_token_noeof(t);
+			if(strcmp(s, "conn") == 0) {
+				name = xdlrc_get_token_noeof(t);
+				parse_tile_name(db, name, &type, &x, &y);
+				free(name);
+				neighbor = db_lookup_tile(db, type, x, y);
+				if(neighbor == NULL) {
+					fprintf(stderr, "Failed to find neighboring tile\n");
+					exit(EXIT_FAILURE);
+				}
+				name = xdlrc_get_token_noeof(t);
+				wire2 = conn_get_wire_tile(c, neighbor, name);
+				free(name);
+				xdlrc_get_token_par(t, 0);
+				conn_join_wires(wire, wire2);
+			} else
+				xdlrc_close_parenthese(t);
+			free(s);
+		} else if(strcmp(s, ")") == 0) {
+			free(s);
+			break;
+		} else {
+			fprintf(stderr, "Expected parenthese, got '%s'\n", s);
+			exit(EXIT_FAILURE);
+		}
+	}
 }
 
 static void handle_pip(struct db *db, struct conn *c, struct tile *tile, struct xdlrc_tokenizer *t)
 {
-	xdlrc_close_parenthese(t);
-}
-
-static void parse_tile_name(struct db *db, char *tile_name, int *type, int *x, int *y)
-{
-	char *c;
+	char *source;
+	char *dest;
+	int dir;
+	struct c_wire *w1, *w2;
 	
-	c = strrchr(tile_name, '_');
-	if(c == NULL) {
-		fprintf(stderr, "Unexpected tile name: '%s'\n", tile_name);
-		exit(EXIT_FAILURE);
-	}
-	*c = 0;
-	*type = db_resolve_tile(db, tile_name);
-	if(*type == -1) {
-		fprintf(stderr, "Unexpected tile type: '%s'\n'", tile_name);
-		exit(EXIT_FAILURE);
-	}
-	c++;
-	if(*c != 'X') {
-		fprintf(stderr, "Unexpected tile position (X): '%s'\n'", c);
-		exit(EXIT_FAILURE);
-	}
-	c++;
-	*x = strtoul(c, &c, 10);
-	if(*c != 'Y') {
-		fprintf(stderr, "Unexpected tile position (Y): '%s'\n'", c);
-		exit(EXIT_FAILURE);
-	}
-	c++;
-	*y = strtoul(c, &c, 10);
-	if(*c != 0) {
-		fprintf(stderr, "Unexpected tile position (end): '%s'\n'", c);
-		exit(EXIT_FAILURE);
-	}
+	free(xdlrc_get_token_noeof(t)); /* tile name, repeated */
+	source = xdlrc_get_token_noeof(t);
+	dir = xdlrc_get_token_dir(t);
+	dest = xdlrc_get_token_noeof(t);
+	xdlrc_get_token_par(t, 0);
+	w1 = conn_get_wire_tile(c, tile, source);
+	w2 = conn_get_wire_tile(c, tile, dest);
+	free(source);
+	free(dest);
+	
+	dir = dir != XDLRC_DIR_BUFFERED;
+	conn_add_pip(c, tile, dir, w1, w2);
+	if(dir)
+		conn_add_pip(c, tile, dir, w2, w1);
 }
 
 static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *t)
@@ -178,6 +237,8 @@ void chip_update_db(struct db *db, const char *filename)
 	char *s;
 	struct conn *c;
 	
+	c = NULL; // TODO
+	
 	t = xdlrc_create_tokenizer(filename);
 	
 	xdlrc_get_token_par(t, 1);
@@ -191,8 +252,6 @@ void chip_update_db(struct db *db, const char *filename)
 	free(xdlrc_get_token_noeof(t)); /* Version */
 	free(xdlrc_get_token_noeof(t)); /* Chip */
 	free(xdlrc_get_token_noeof(t)); /* Family */
-
-	c = NULL; // TODO
 
 	while(1) {
 		s = xdlrc_get_token_noeof(t);
