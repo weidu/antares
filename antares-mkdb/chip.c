@@ -110,7 +110,6 @@ static void handle_primitive_site(struct db *db, struct conn *c, struct tile *ti
 	}
 }
 
-/* TODO: this should be done in a second pass */
 static void handle_wire(struct db *db, struct conn *c, struct tile *tile, struct xdlrc_tokenizer *t)
 {
 	char *name;
@@ -167,7 +166,8 @@ static void handle_pip(struct db *db, struct conn *c, struct tile *tile, struct 
 	source = xdlrc_get_token_noeof(t);
 	dir = xdlrc_get_token_dir(t);
 	dest = xdlrc_get_token_noeof(t);
-	xdlrc_get_token_par(t, 0);
+	/* TODO: ignore route through "virtual PIPs" */
+	xdlrc_close_parenthese(t);
 	w1 = conn_get_wire_tile(c, tile, source);
 	w2 = conn_get_wire_tile(c, tile, dest);
 	free(source);
@@ -179,7 +179,7 @@ static void handle_pip(struct db *db, struct conn *c, struct tile *tile, struct 
 		conn_add_pip(c, tile, dir, w2, w1);
 }
 
-static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *t)
+static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *t, int pass)
 {
 	int x, y;
 	char *s;
@@ -210,11 +210,11 @@ static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *
 				if(strcmp(s, "(") == 0) {
 					free(s);
 					s = xdlrc_get_token_noeof(t);
-					if(strcmp(s, "primitive_site") == 0)
+					if(!pass && (strcmp(s, "primitive_site") == 0))
 						handle_primitive_site(db, c, &db->chip.tiles[offset], t);
-					else if(strcmp(s, "wire") == 0)
+					else if(pass && (strcmp(s, "wire") == 0))
 						handle_wire(db, c, &db->chip.tiles[offset], t);
-					else if(strcmp(s, "pip") == 0)
+					else if(!pass && (strcmp(s, "pip") == 0))
 						handle_pip(db, c, &db->chip.tiles[offset], t);
 					else
 						xdlrc_close_parenthese(t);
@@ -236,41 +236,44 @@ void chip_update_db(struct db *db, const char *filename)
 	struct xdlrc_tokenizer *t;
 	char *s;
 	struct conn *c;
+	int i;
 	
 	c = NULL; // TODO
 	
-	t = xdlrc_create_tokenizer(filename);
+	for(i=0;i<2;i++) {
+		t = xdlrc_create_tokenizer(filename);
 	
-	xdlrc_get_token_par(t, 1);
-	s = xdlrc_get_token_noeof(t);
-	if(strcmp(s, "xdl_resource_report") != 0) {
-		fprintf(stderr, "Expected xdl_resource_report, got '%s'\n", s);
-		exit(EXIT_FAILURE);
-	}
-	free(s);
-	
-	free(xdlrc_get_token_noeof(t)); /* Version */
-	free(xdlrc_get_token_noeof(t)); /* Chip */
-	free(xdlrc_get_token_noeof(t)); /* Family */
-
-	while(1) {
+		xdlrc_get_token_par(t, 1);
 		s = xdlrc_get_token_noeof(t);
-		if(strcmp(s, "(") == 0) {
-			free(s);
-			s = xdlrc_get_token(t);
-			if(strcmp(s, "tiles") == 0)
-				handle_tiles(db, c, t);
-			else
-				xdlrc_close_parenthese(t);
-			free(s);
-		} else if(strcmp(s, ")") == 0) {
-			free(s);
-			break;
-		} else {
-			fprintf(stderr, "Expected (, got %s\n", s);
+		if(strcmp(s, "xdl_resource_report") != 0) {
+			fprintf(stderr, "Expected xdl_resource_report, got '%s'\n", s);
 			exit(EXIT_FAILURE);
 		}
-	}
+		free(s);
+	
+		free(xdlrc_get_token_noeof(t)); /* Version */
+		free(xdlrc_get_token_noeof(t)); /* Chip */
+		free(xdlrc_get_token_noeof(t)); /* Family */
 
-	xdlrc_free_tokenizer(t);
+		while(1) {
+			s = xdlrc_get_token_noeof(t);
+			if(strcmp(s, "(") == 0) {
+				free(s);
+				s = xdlrc_get_token(t);
+				if(strcmp(s, "tiles") == 0)
+					handle_tiles(db, c, t, i);
+				else
+					xdlrc_close_parenthese(t);
+				free(s);
+			} else if(strcmp(s, ")") == 0) {
+				free(s);
+				break;
+			} else {
+				fprintf(stderr, "Expected (, got %s\n", s);
+				exit(EXIT_FAILURE);
+			}
+		}
+
+		xdlrc_free_tokenizer(t);
+	}
 }
