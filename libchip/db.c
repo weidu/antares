@@ -110,6 +110,16 @@ int db_resolve_tile(struct db *db, const char *name)
 	return -1;
 }
 
+int db_resolve_tile_wire(struct tile_type *tt, const char *name)
+{
+	int i;
+	
+	for(i=0;i<tt->n_tile_wires;i++)
+		if(strcmp(tt->tile_wire_names[i], name) == 0)
+			return i;
+	return -1;
+}
+
 int db_resolve_input_pin(struct site_type *st, const char *name)
 {
 	int i;

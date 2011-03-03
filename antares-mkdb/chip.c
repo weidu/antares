@@ -174,9 +174,9 @@ static void handle_pip(struct db *db, struct conn *c, struct tile *tile, struct 
 	free(dest);
 	
 	dir = dir != XDLRC_DIR_BUFFERED;
-	conn_add_pip(c, tile, dir, w1, w2);
+	conn_add_pip(tile, dir, w1, w2);
 	if(dir)
-		conn_add_pip(c, tile, dir, w2, w1);
+		conn_add_pip(tile, dir, w2, w1);
 }
 
 static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *t, int pass)
@@ -238,7 +238,7 @@ void chip_update_db(struct db *db, const char *filename)
 	struct conn *c;
 	int i;
 	
-	c = NULL; // TODO
+	c = conn_create(db);;
 	
 	for(i=0;i<2;i++) {
 		t = xdlrc_create_tokenizer(filename);
@@ -276,4 +276,8 @@ void chip_update_db(struct db *db, const char *filename)
 
 		xdlrc_free_tokenizer(t);
 	}
+	
+	/* TODO: transfer to DB */
+	
+	conn_free(c);
 }

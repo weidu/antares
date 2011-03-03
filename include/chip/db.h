@@ -73,6 +73,7 @@ void db_alloc_tile(struct db *db, struct tile *tile);
 
 int db_resolve_site(struct db *db, const char *name);
 int db_resolve_tile(struct db *db, const char *name);
+int db_resolve_tile_wire(struct tile_type *tt, const char *name);
 int db_resolve_input_pin(struct site_type *st, const char *name);
 int db_resolve_output_pin(struct site_type *st, const char *name);
 
