@@ -2,6 +2,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <time.h>
 #include <util.h>
 
 #include <chip/db.h>
@@ -141,7 +142,7 @@ static void handle_wire(struct db *db, struct conn *c, struct tile *tile, struct
 				wire2 = conn_get_wire_tile(c, neighbor, name);
 				free(name);
 				xdlrc_get_token_par(t, 0);
-				conn_join_wires(wire, wire2);
+				conn_join_wires(c, wire, wire2);
 			} else
 				xdlrc_close_parenthese(t);
 			free(s);
@@ -187,7 +188,7 @@ static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *
 	
 	xdlrc_get_token_int(t); /* h */
 	xdlrc_get_token_int(t); /* w */
-	for(y=0;y<db->chip.h;y++)
+	for(y=0;y<db->chip.h;y++) {
 		for(x=0;x<db->chip.w;x++) {
 			offset = db->chip.w*y+x;
 			xdlrc_get_token_par(t, 1);
@@ -228,6 +229,7 @@ static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *
 				}
 			}
 		}
+	}
 	xdlrc_close_parenthese(t);
 }
 
@@ -277,7 +279,7 @@ void chip_update_db(struct db *db, const char *filename)
 		xdlrc_free_tokenizer(t);
 	}
 	
-	/* TODO: transfer to DB */
+	printf("%d wires\n", conn_count_wires(c));
 	
 	conn_free(c);
 }

@@ -15,6 +15,7 @@ struct tile {
 	int x;				/* < X coordinate of the tile */
 	int y;				/* < Y coordinate of the tile. The XDL tile name is type_XxYy. */
 	struct site *sites;		/* < array of sites */
+	void *user;			/* < for application use */
 };
 
 struct pip {

@@ -6,6 +6,12 @@
 
 #include "connectivity.h"
 
+/* Keep lists in each tile of the wires going through it to increase performance */
+struct c_tile_wire_list {
+	struct c_wire *w;
+	struct c_tile_wire_list *next;
+};
+
 struct conn *conn_create(struct db *db)
 {
 	struct conn *c;
@@ -41,12 +47,24 @@ static void free_wire(struct c_wire *w)
 void conn_free(struct conn *c)
 {
 	struct c_wire *w1, *w2;
+	int i;
+	struct c_tile_wire_list *tw1, *tw2;
 	
 	w1 = c->whead;
 	while(w1 != NULL) {
 		w2 = w1->next;
 		free_wire(w1);
 		w1 = w2;
+	}
+	
+	for(i=0;i<c->db->chip.w*c->db->chip.h;i++) {
+		tw1 = c->db->chip.tiles[i].user;
+		while(tw1 != NULL) {
+			tw2 = tw1->next;
+			free(tw1);
+			tw1 = tw2;
+		}
+		c->db->chip.tiles[i].user = NULL;
 	}
 	
 	free(c);
@@ -57,19 +75,20 @@ struct c_wire *conn_get_wire_tile(struct conn *c, struct tile *tile, const char 
 	int iname;
 	struct c_wire *w;
 	struct c_wire_branch *b;
+	struct c_tile_wire_list *tw;
 	
 	iname = db_resolve_tile_wire(&c->db->tile_types[tile->type], name);
 	
 	/* Check for an already existing wire */
-	w = c->whead;
-	while(w != NULL) {
-		b = w->bhead;
+	tw = tile->user;
+	while(tw != NULL) {
+		b = tw->w->bhead;
 		while(b != NULL) {
 			if((b->tile == tile) && (b->name == iname))
-				return w;
+				return tw->w;
 			b = b->next;
 		}
-		w = w->next;
+		tw = tw->next;
 	}
 	
 	/* New wire - create it */
@@ -81,7 +100,15 @@ struct c_wire *conn_get_wire_tile(struct conn *c, struct tile *tile, const char 
 	w->bhead = b;
 	w->phead = NULL;
 	w->joined = NULL;
-	w->next = NULL;
+	w->next = c->whead;
+	c->whead = w;
+	
+	/* Register it into the tile */
+	tw = alloc_type(struct c_tile_wire_list);
+	tw->w = w;
+	tw->next = tile->user;
+	tile->user = tw;
+	
 	return w;
 }
 
@@ -92,7 +119,7 @@ struct c_wire *conn_follow(struct c_wire *w)
 	return w;
 }
 
-void conn_join_wires(struct c_wire *resulting, struct c_wire *merged)
+void conn_join_wires(struct conn *c, struct c_wire *resulting, struct c_wire *merged)
 {
 	struct c_wire_branch *blast;
 	struct c_pip *plast;
@@ -133,4 +160,19 @@ void conn_add_pip(struct tile *tile, int bidir, struct c_wire *w1, struct c_wire
 	p->endpoint = w2;
 	p->next = w1->phead;
 	w1->phead = p;
+}
+
+int conn_count_wires(struct conn *c)
+{
+	int count;
+	struct c_wire *w;
+
+	count = 0;
+	w = c->whead;
+	while(w != NULL) {
+		if(w->bhead != NULL)
+			count++;
+		w = w->next;
+	}
+	return count;
 }
