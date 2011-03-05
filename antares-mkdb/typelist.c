@@ -115,14 +115,17 @@ static void free_registry(struct registry *reg)
 	free(reg);
 }
 
-static struct e_tile_type *register_tile_type(struct registry *reg, char *t)
+static struct e_tile_type *register_tile_type(struct registry *reg, char *t, int *existing)
 {
 	struct e_tile_type *tt;
 	
+	*existing = 0;
 	tt = reg->thead;
 	while(tt != NULL) {
-		if(strcmp(tt->name, t) == 0)
-			return NULL;
+		if(strcmp(tt->name, t) == 0) {
+			*existing = 1;
+			return tt;
+		}
 		tt = tt->next;
 	}
 	
@@ -154,9 +157,9 @@ static struct e_name *register_wire(struct e_tile_type *tt, char *t)
 		wn = wn->next;
 	}
 	
-//	#ifdef DEBUG
+	#ifdef DEBUG
 	printf("Tile: %s Wire: %s\n", tt->name, t);
-//	#endif
+	#endif
 	
 	wn = alloc_type(struct e_name);
 	wn->name = stralloc(t);
@@ -377,6 +380,7 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 	int i;
 	char *s, *c;
 	struct e_tile_type *tt;
+	int existing_tile_type;
 	struct db *db;
 	
 	reg = create_registry();
@@ -399,23 +403,21 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 			exit(EXIT_FAILURE);
 		}
 		*c = 0;
-		tt = register_tile_type(reg, s);
+		tt = register_tile_type(reg, s, &existing_tile_type);
 		free(s);
 		free(xdlrc_get_token(t)); /* tile type/comment */
-		if(tt == NULL) {
-			/* Tile type is already known */
-			xdlrc_close_parenthese(t);
-			continue;
-		}
 		xdlrc_get_token_int(t); /* number of sites */
 		while(1) {
 			s = xdlrc_get_token_noeof(t);
 			if(strcmp(s, "(") == 0) {
 				free(s);
 				s = xdlrc_get_token_noeof(t);
-				if(strcmp(s, "primitive_site") == 0)
-					handle_primitive_site(reg, tt, t);
-				else if(strcmp(s, "wire") == 0)
+				if(strcmp(s, "primitive_site") == 0) {
+					if(existing_tile_type)
+						xdlrc_close_parenthese(t);
+					else
+						handle_primitive_site(reg, tt, t);
+				} else if(strcmp(s, "wire") == 0)
 					handle_wire(reg, tt, t);
 				else
 					xdlrc_close_parenthese(t);
