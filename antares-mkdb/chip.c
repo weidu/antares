@@ -201,9 +201,11 @@ static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *
 			xdlrc_get_token_int(t); /* tile X */
 			xdlrc_get_token_int(t); /* tile Y */
 			s = xdlrc_get_token(t); /* tile name */
-			parse_tile_name(db, s, &db->chip.tiles[offset].type, &db->chip.tiles[offset].x, &db->chip.tiles[offset].y);
+			if(!pass)
+				parse_tile_name(db, s, &db->chip.tiles[offset].type, &db->chip.tiles[offset].x, &db->chip.tiles[offset].y);
 			free(s);
-			db_alloc_tile(db, &db->chip.tiles[offset]);
+			if(!pass)
+				db_alloc_tile(db, &db->chip.tiles[offset]);
 			free(xdlrc_get_token(t)); /* tile type */
 			xdlrc_get_token_int(t); /* number of sites */
 			while(1) {

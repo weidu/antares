@@ -66,6 +66,7 @@ static void free_e_name(struct e_name *head)
 	n1 = head;
 	while(n1 != NULL) {
 		n2 = n1->next;
+		free(n1->name);
 		free(n1);
 		n1 = n2;
 	}
