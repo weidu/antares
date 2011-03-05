@@ -33,6 +33,7 @@ add_subdirectory(libchip)
 add_subdirectory(libbanner)
 
 add_subdirectory(antares-mkdb)
+add_subdirectory(test-router)
 
 # packaging
 

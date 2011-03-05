@@ -64,7 +64,7 @@ static void decode_tile(gzFile fd, struct db *db, struct tile *tile)
 	tt = &db->tile_types[tile->type];
 	tile->x = decode_short(fd);
 	tile->y = decode_short(fd);
-	tt->sites = alloc_size(tt->n_sites*sizeof(struct site));
+	tile->sites = alloc_size(tt->n_sites*sizeof(struct site));
 	for(i=0;i<tt->n_sites;i++) {
 		st = &db->site_types[tt->sites[i]];
 		decode_site(fd, &tile->sites[i], st->n_inputs, st->n_outputs);
