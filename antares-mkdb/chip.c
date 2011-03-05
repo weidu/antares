@@ -217,7 +217,7 @@ static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *
 						handle_primitive_site(db, c, &db->chip.tiles[offset], t);
 					else if(pass && (strcmp(s, "wire") == 0))
 						handle_wire(db, c, &db->chip.tiles[offset], t);
-					else if(!pass && (strcmp(s, "pip") == 0))
+					else if(pass && (strcmp(s, "pip") == 0))
 						handle_pip(db, c, &db->chip.tiles[offset], t);
 					else
 						xdlrc_close_parenthese(t);
@@ -252,7 +252,7 @@ static void transfer_to_db(struct db *db, struct conn *c)
 		db->chip.wires[i].tile_wires = alloc_size(db->chip.wires[i].n_tile_wires*sizeof(struct tile_wire));
 		tw = w->bhead;
 		for(j=0;j<db->chip.wires[i].n_tile_wires;j++) {
-			db->chip.wires[i].tile_wires[j].tile = (tw->tile-db->chip.tiles)/sizeof(struct tile);
+			db->chip.wires[i].tile_wires[j].tile = tw->tile-db->chip.tiles;
 			db->chip.wires[i].tile_wires[j].name = tw->name;
 			tw = tw->next;
 		}
@@ -260,7 +260,7 @@ static void transfer_to_db(struct db *db, struct conn *c)
 		db->chip.wires[i].pips = alloc_size(db->chip.wires[i].n_pips*sizeof(struct pip));
 		p = w->phead;
 		for(j=0;j<db->chip.wires[i].n_pips;j++) {
-			db->chip.wires[i].pips[j].tile = (p->tile-db->chip.tiles)/sizeof(struct tile);
+			db->chip.wires[i].pips[j].tile = p->tile-db->chip.tiles;
 			db->chip.wires[i].pips[j].endpoint = p->endpoint->db_index; /* < filled by conn_count_wires */
 			db->chip.wires[i].pips[j].bidir = p->bidir;
 			p = p->next;

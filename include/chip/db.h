@@ -48,7 +48,7 @@ struct tile_type {
 	char *name;			/* < "NULL", "INT", "CLEXM", etc. */
 	int n_sites;			/* < number of primitive sites in each tile of this type */
 	int *sites;			/* < type of each primitive site */
-	int n_tile_wires;		/* < number of tile wires for this tile type */
+	int n_tile_wires;		/* < maximum number of tile wires for this tile type */
 	char **tile_wire_names;		/* < names of the tile wires */
 };
 

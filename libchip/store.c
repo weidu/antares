@@ -71,18 +71,11 @@ static void encode_pip(FILE *fd, struct pip *p)
 	encode_char(fd, p->bidir);
 }
 
-static int max_tile_wires;
-static struct wire *max_wire;
-
 static void encode_wire(FILE *fd, struct wire *wire)
 {
 	int i;
 	
 	encode_short(fd, wire->n_tile_wires);
-	if(wire->n_tile_wires > max_tile_wires) {
-		max_tile_wires = wire->n_tile_wires;
-		max_wire = wire;
-	}
 	for(i=0;i<wire->n_tile_wires;i++)
 		encode_tile_wire(fd, &wire->tile_wires[i]);
 	encode_short(fd, wire->n_pips);
@@ -141,14 +134,6 @@ void db_write_fd(struct db *db, FILE *fd)
 	for(i=0;i<db->n_site_types;i++)
 		encode_site_type(fd, &db->site_types[i]);
 	encode_chip(fd, db, &db->chip);
-	printf("max tile wires: %d\n", max_tile_wires);
-	for(i=0;i<max_wire->n_tile_wires;i++) {
-		struct tile_type *tt;
-		printf("%d\n", max_wire->tile_wires[i].name);
-		tt = &db->tile_types[db->chip.tiles[max_wire->tile_wires[i].tile].type];
-		printf("A\n");
-		printf("%s\n", tt->tile_wire_names[max_wire->tile_wires[i].name]);
-	}
 }
 
 void db_write_file(struct db *db, const char *filename)
