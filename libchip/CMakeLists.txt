@@ -1,1 +1,1 @@
-add_library(chip db.c)
+add_library(chip db.c store.c)

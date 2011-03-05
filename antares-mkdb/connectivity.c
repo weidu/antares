@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
+#include <stdio.h>
 #include <util.h>
 
 #include <chip/db.h>
@@ -78,6 +79,10 @@ struct c_wire *conn_get_wire_tile(struct conn *c, struct tile *tile, const char 
 	struct c_tile_wire_list *tw;
 	
 	iname = db_resolve_tile_wire(&c->db->tile_types[tile->type], name);
+	if(iname == -1) {
+		fprintf(stderr, "Failed to find wire %s in tile %s\n", name, c->db->tile_types[tile->type].name);
+		abort();
+	}
 	
 	/* Check for an already existing wire */
 	tw = tile->user;

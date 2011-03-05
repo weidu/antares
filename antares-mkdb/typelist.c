@@ -154,9 +154,9 @@ static struct e_name *register_wire(struct e_tile_type *tt, char *t)
 		wn = wn->next;
 	}
 	
-	#ifdef DEBUG
+//	#ifdef DEBUG
 	printf("Tile: %s Wire: %s\n", tt->name, t);
-	#endif
+//	#endif
 	
 	wn = alloc_type(struct e_name);
 	wn->name = stralloc(t);
@@ -375,7 +375,7 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 	struct registry *reg;
 	int w, h;
 	int i;
-	char *s;
+	char *s, *c;
 	struct e_tile_type *tt;
 	struct db *db;
 	
@@ -392,10 +392,16 @@ static struct db *create_db_tiles(struct xdlrc_tokenizer *t)
 		free(s);
 		xdlrc_get_token_int(t); /* tile X */
 		xdlrc_get_token_int(t); /* tile Y */
-		free(xdlrc_get_token(t)); /* tile name */
-		s = xdlrc_get_token(t); /* tile type */
+		s = xdlrc_get_token(t); /* tile name */
+		c = strrchr(s, '_');
+		if(c == NULL) {
+			fprintf(stderr, "Unexpected tile naming: '%s'\n", s);
+			exit(EXIT_FAILURE);
+		}
+		*c = 0;
 		tt = register_tile_type(reg, s);
 		free(s);
+		free(xdlrc_get_token(t)); /* tile type/comment */
 		if(tt == NULL) {
 			/* Tile type is already known */
 			xdlrc_close_parenthese(t);
