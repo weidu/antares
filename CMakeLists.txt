@@ -22,6 +22,11 @@ include_directories("${PROJECT_BINARY_DIR}")
 
 include_directories("${PROJECT_SOURCE_DIR}/include")
 
+# system libraries
+
+find_package(ZLIB REQUIRED)
+include_directories("${ZLIB_INCLUDE_DIRS}")
+
 # subdirectories
 
 add_subdirectory(libchip)

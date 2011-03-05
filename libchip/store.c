@@ -87,8 +87,6 @@ static void encode_chip(FILE *fd, struct db *db, struct chip *chip)
 {
 	int i;
 	
-	encode_short(fd, chip->w);
-	encode_short(fd, chip->h);
 	for(i=0;i<chip->w*chip->h;i++)
 		encode_tile(fd, db, &chip->tiles[i]);
 	encode_int(fd, chip->n_wires);
@@ -126,11 +124,13 @@ void db_write_fd(struct db *db, FILE *fd)
 {
 	int i;
 	
-	encode_string(fd, db->chip_ref);
 	encode_short(fd, db->n_tile_types);
+	encode_short(fd, db->n_site_types);
+	encode_short(fd, db->chip.w);
+	encode_short(fd, db->chip.h);
+	encode_string(fd, db->chip_ref);
 	for(i=0;i<db->n_tile_types;i++)
 		encode_tile_type(fd, &db->tile_types[i]);
-	encode_short(fd, db->n_site_types);
 	for(i=0;i<db->n_site_types;i++)
 		encode_site_type(fd, &db->site_types[i]);
 	encode_chip(fd, db, &db->chip);
@@ -141,7 +141,7 @@ void db_write_file(struct db *db, const char *filename)
 	FILE *fd;
 	int r;
 
-	fd = fopen(filename, "w");
+	fd = fopen(filename, "wb");
 	if(fd == NULL) {
 		perror("db_write_file");
 		exit(EXIT_FAILURE);
