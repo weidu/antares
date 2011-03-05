@@ -170,9 +170,39 @@ int conn_count_wires(struct conn *c)
 	count = 0;
 	w = c->whead;
 	while(w != NULL) {
-		if(w->bhead != NULL)
+		if(w->bhead != NULL) {
+			w->db_index = count;
 			count++;
+		}
 		w = w->next;
+	}
+	return count;
+}
+
+int conn_count_wire_branches(struct c_wire *w)
+{
+	int count;
+	struct c_wire_branch *b;
+	
+	count = 0;
+	b = w->bhead;
+	while(b != NULL) {
+		count++;
+		b = b->next;
+	}
+	return count;
+}
+
+int conn_count_wire_pips(struct c_wire *w)
+{
+	int count;
+	struct c_pip *p;
+	
+	count = 0;
+	p = w->phead;
+	while(p != NULL) {
+		count++;
+		p = p->next;
 	}
 	return count;
 }

@@ -39,5 +39,7 @@ void conn_join_wires(struct conn *c, struct c_wire *resulting, struct c_wire *me
 void conn_add_pip(struct tile *tile, int bidir, struct c_wire *w1, struct c_wire *w2);
 
 int conn_count_wires(struct conn *c);
+int conn_count_wire_branches(struct c_wire *w);
+int conn_count_wire_pips(struct c_wire *w);
 
 #endif /* __CONNECTIVITY_H */

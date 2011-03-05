@@ -235,6 +235,65 @@ static void handle_tiles(struct db *db, struct conn *c, struct xdlrc_tokenizer *
 	xdlrc_close_parenthese(t);
 }
 
+static void transfer_to_db(struct db *db, struct conn *c)
+{
+	int i, j;
+	struct c_wire *w;
+	struct c_wire_branch *tw;
+	struct c_pip *p;
+	
+	db->chip.n_wires = conn_count_wires(c); /* < this fills in db_index */
+	db->chip.wires = alloc_size(db->chip.n_wires*sizeof(struct wire));
+	w = c->whead;
+	for(i=0;i<db->chip.n_wires;i++) {
+		while(w->bhead == NULL)
+			w = w->next;
+		db->chip.wires[i].n_tile_wires = conn_count_wire_branches(w);
+		db->chip.wires[i].tile_wires = alloc_size(db->chip.wires[i].n_tile_wires*sizeof(struct tile_wire));
+		tw = w->bhead;
+		for(j=0;j<db->chip.wires[i].n_tile_wires;j++) {
+			db->chip.wires[i].tile_wires[j].tile = (tw->tile-db->chip.tiles)/sizeof(struct tile);
+			db->chip.wires[i].tile_wires[j].name = tw->name;
+			tw = tw->next;
+		}
+		db->chip.wires[i].n_pips = conn_count_wire_pips(w);
+		db->chip.wires[i].pips = alloc_size(db->chip.wires[i].n_pips*sizeof(struct pip));
+		p = w->phead;
+		for(j=0;j<db->chip.wires[i].n_pips;j++) {
+			db->chip.wires[i].pips[j].tile = (p->tile-db->chip.tiles)/sizeof(struct tile);
+			db->chip.wires[i].pips[j].endpoint = p->endpoint->db_index; /* < filled by conn_count_wires */
+			db->chip.wires[i].pips[j].bidir = p->bidir;
+			p = p->next;
+		}
+		w = w->next;
+	}
+}
+
+static void convert_site_wires(struct db *db)
+{
+	int i, j, k;
+	struct tile_type *tt;
+	struct site_type *st;
+	struct site *s;
+	struct c_wire *w;
+	
+	for(i=0;i<db->chip.w*db->chip.h;i++) {
+		tt = &db->tile_types[db->chip.tiles[i].type];
+		for(j=0;j<tt->n_sites;j++) {
+			s = &db->chip.tiles[i].sites[j];
+			st = &db->site_types[tt->sites[j]];
+			for(k=0;k<st->n_inputs;k++) {
+				w = (struct c_wire *)s->input_wires[k];
+				s->input_wires[k] = w->db_index;
+			}
+			for(k=0;k<st->n_outputs;k++) {
+				w = (struct c_wire *)s->output_wires[k];
+				s->output_wires[k] = w->db_index;
+			}
+		}
+	}
+}
+
 void chip_update_db(struct db *db, const char *filename)
 {
 	struct xdlrc_tokenizer *t;
@@ -281,7 +340,8 @@ void chip_update_db(struct db *db, const char *filename)
 		xdlrc_free_tokenizer(t);
 	}
 	
-	printf("%d wires\n", conn_count_wires(c));
+	transfer_to_db(db, c);
+	convert_site_wires(db);
 	
 	conn_free(c);
 }

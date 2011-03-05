@@ -44,9 +44,8 @@ void db_free(struct db *db)
 	
 	/* wires */
 	for(i=0;i<db->chip.n_wires;i++) {
-		for(j=0;j<db->chip.wires[i].n_tile_wires;j++)
-			free(db->chip.wires[i].tile_wires[j].pips);
 		free(db->chip.wires[i].tile_wires);
+		free(db->chip.wires[i].pips);
 	}
 	free(db->chip.wires);
 	

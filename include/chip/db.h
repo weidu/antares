@@ -19,6 +19,7 @@ struct tile {
 };
 
 struct pip {
+	int tile;			/* < tile this pip is in (offset in the chip's tiles array) */
 	int endpoint;			/* < destination wire of this pip (offset in the chip's wire array) */
 	int bidir;			/* < is this pip bidirectional? (nb. two pip entries are created if yes) */
 };
@@ -26,13 +27,13 @@ struct pip {
 struct tile_wire {
 	int tile;			/* < current tile (offset in the chip's tiles array) */
 	int name;			/* < how this wire is named in the current tile */
-	int n_pips;			/* < number of pips with this wire as start point */
-	struct pip *pips;		/* < array of those pips */
 };
 
 struct wire {
 	int n_tile_wires;		/* < number of tile wires this wire is made of */
 	struct tile_wire *tile_wires;	/* < array of tile wires */
+	int n_pips;			/* < number of pips with this wire as start point */
+	struct pip *pips;		/* < array of those pips */
 };
 
 struct chip {
