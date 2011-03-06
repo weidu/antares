@@ -34,6 +34,7 @@ struct wire {
 	struct tile_wire *tile_wires;	/* < array of tile wires */
 	int n_pips;			/* < number of pips with this wire as start point */
 	struct pip *pips;		/* < array of those pips */
+	void *user;			/* < for application use */
 };
 
 struct chip {

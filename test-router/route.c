@@ -71,13 +71,9 @@ static struct reached_wire *router_reach(struct router *r, struct reached_wire *
 {
 	struct reached_wire *rw;
 	
-	rw = r->head;
-	while(rw != NULL) {
-		if(rw->this_wire == w)
-			/* we have already reached this wire */
-			return rw;
-		rw = rw->next;
-	}
+	if(w->user != NULL)
+		return NULL;
+	w->user = (void *)1;
 	
 	rw = alloc_type(struct reached_wire);
 	rw->leading_wire = leading_wire;
