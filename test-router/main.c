@@ -5,19 +5,7 @@
 #include <chip/db.h>
 #include <chip/load.h>
 
-static void print_wire(struct db *db, struct wire *w)
-{
-	int i;
-	struct tile *tile;
-	
-	for(i=0;i<w->n_tile_wires;i++) {
-		tile = &db->chip.tiles[w->tile_wires[i].tile];
-		printf(" %s_X%dY%d:%s",
-			db->tile_types[tile->type].name,
-			tile->x, tile->y,
-			db->tile_types[tile->type].tile_wire_names[w->tile_wires[i].name]);
-	}
-}
+#include "route.h"
 
 static void resolve_site_pin(struct db *db, const char *site_name, const char *pin_name, struct wire **w)
 {
@@ -46,7 +34,7 @@ static void resolve_site_pin(struct db *db, const char *site_name, const char *p
 		*w = &db->chip.wires[tile->sites[site_index].output_wires[pin_index]];
 	else
 		*w = &db->chip.wires[tile->sites[site_index].input_wires[pin_index]];
-	print_wire(db, *w);
+	print_wire(db, *w, NULL);
 	printf("\n");
 }
 
@@ -82,11 +70,8 @@ int main(int argc, char *argv[])
 	printf("End:\n");
 	resolve_site_pin(db, end_site, end_pin, &end_wire);
 	
-	printf("\nRouting");
-	print_wire(db, start_wire);
-	printf(" ->");
-	print_wire(db, end_wire);
-	printf("...\n");
+	printf("\n");
+	route(db, start_wire, end_wire);
 	
 	db_free(db);
 	
