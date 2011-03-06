@@ -115,6 +115,19 @@ static void router_backtrace(struct router *r, struct reached_wire *rw)
 	}
 }
 
+static void router_free(struct router *r)
+{
+	struct reached_wire *rw1, *rw2;
+	
+	rw1 = r->head;
+	while(rw1 != NULL) {
+		rw2 = rw1->next;
+		free(rw1);
+		rw1 = rw2;
+	}
+	free(r);
+}
+
 void route(struct db *db, struct wire *start, struct wire *end)
 {
 	struct router *r;
@@ -138,4 +151,5 @@ void route(struct db *db, struct wire *start, struct wire *end)
 			break;
 		}
 	}
+	router_free(r);
 }
