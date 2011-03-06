@@ -261,7 +261,8 @@ static void transfer_to_db(struct db *db, struct conn *c)
 		p = w->phead;
 		for(j=0;j<db->chip.wires[i].n_pips;j++) {
 			db->chip.wires[i].pips[j].tile = p->tile-db->chip.tiles;
-			db->chip.wires[i].pips[j].endpoint = p->endpoint->db_index; /* < filled by conn_count_wires */
+			db->chip.wires[i].pips[j].endpoint = conn_follow(p->endpoint)->db_index; /* < filled by conn_count_wires */
+			assert(db->chip.wires[i].pips[j].endpoint < db->chip.n_wires);
 			db->chip.wires[i].pips[j].bidir = p->bidir;
 			p = p->next;
 		}
@@ -284,11 +285,11 @@ static void convert_site_wires(struct db *db)
 			st = &db->site_types[tt->sites[j]];
 			for(k=0;k<st->n_inputs;k++) {
 				w = (struct c_wire *)s->input_wires[k];
-				s->input_wires[k] = w->db_index;
+				s->input_wires[k] = conn_follow(w)->db_index;
 			}
 			for(k=0;k<st->n_outputs;k++) {
 				w = (struct c_wire *)s->output_wires[k];
-				s->output_wires[k] = w->db_index;
+				s->output_wires[k] = conn_follow(w)->db_index;
 			}
 		}
 	}
