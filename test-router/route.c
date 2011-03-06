@@ -27,11 +27,11 @@ void print_pip(struct db *db, struct wire *startpoint, struct pip *p)
 	struct tile *tile;
 	
 	tile = &db->chip.tiles[p->tile];
-	printf("pip %s_X%dY%d ", db->tile_types[tile->type].name, tile->x, tile->y);
+	printf("  pip %s_X%dY%d ", db->tile_types[tile->type].name, tile->x, tile->y);
 	print_wire(db, startpoint, tile);
 	printf(" -> ");
 	print_wire(db, &db->chip.wires[p->endpoint], tile);
-	printf("\n");
+	printf(" , \n");
 }
 
 struct reached_wire {
