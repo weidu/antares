@@ -5,11 +5,57 @@
 #include <chip/db.h>
 #include <chip/load.h>
 
+static void print_wire(struct db *db, struct wire *w)
+{
+	int i;
+	struct tile *tile;
+	
+	for(i=0;i<w->n_tile_wires;i++) {
+		tile = &db->chip.tiles[w->tile_wires[i].tile];
+		printf(" %s_X%dY%d:%s",
+			db->tile_types[tile->type].name,
+			tile->x, tile->y,
+			db->tile_types[tile->type].tile_wire_names[w->tile_wires[i].name]);
+	}
+}
+
+static void resolve_site_pin(struct db *db, const char *site_name, const char *pin_name, struct wire **w)
+{
+	int r;
+	struct tile *tile;
+	int site_index;
+	struct site_type *st;
+	int output;
+	int pin_index;
+	
+	r = db_lookup_site(db, site_name, &tile, &site_index);
+	if(!r) {
+		fprintf(stderr, "Site %s not found\n", site_name);
+		exit(EXIT_FAILURE);
+	}
+	st = &db->site_types[db->tile_types[tile->type].sites[site_index]];
+	r = db_lookup_pin(st, pin_name, &output, &pin_index);
+	if(!r) {
+		fprintf(stderr, "Pin %s not found\n", pin_name);
+		exit(EXIT_FAILURE);
+	}
+	printf("  Tile: %s_X%dY%d\n", db->tile_types[tile->type].name, tile->x, tile->y);
+	printf("  Site type: %s\n", st->name);
+	printf("  Pin is an %s connected to", output ? "output" : "input");
+	if(output)
+		*w = &db->chip.wires[tile->sites[site_index].output_wires[pin_index]];
+	else
+		*w = &db->chip.wires[tile->sites[site_index].input_wires[pin_index]];
+	print_wire(db, *w);
+	printf("\n");
+}
+
 int main(int argc, char *argv[])
 {
 	struct db *db;
 	char *dbfile, *start_site, *start_pin, *end_site, *end_pin;
-	
+	struct wire *start_wire, *end_wire;
+
 	if(argc != 6) {
 		fprintf(stderr, "Usage: test-router <db.acg> <start_site> <start_pin> <end_site> <end_pin>\n");
 		exit(EXIT_FAILURE);
@@ -30,6 +76,17 @@ int main(int argc, char *argv[])
 	printf("Wires: %d\n", db->chip.n_wires);
 	printf("Tile types: %d\n", db->n_tile_types);
 	printf("Site types: %d\n\n", db->n_site_types);
+	
+	printf("Start:\n");
+	resolve_site_pin(db, start_site, start_pin, &start_wire);
+	printf("End:\n");
+	resolve_site_pin(db, end_site, end_pin, &end_wire);
+	
+	printf("\nRouting");
+	print_wire(db, start_wire);
+	printf(" ->");
+	print_wire(db, end_wire);
+	printf("...\n");
 	
 	db_free(db);
 	

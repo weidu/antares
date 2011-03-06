@@ -80,6 +80,8 @@ int db_resolve_input_pin(struct site_type *st, const char *name);
 int db_resolve_output_pin(struct site_type *st, const char *name);
 
 struct tile *db_lookup_tile(struct db *db, int type, int x, int y);
+int db_lookup_site(struct db *db, const char *name, struct tile **tile, int *index);
+int db_lookup_pin(struct site_type *st, const char *name, int *output, int *index);
 
 int db_get_unused_site_in_tile(struct db *db, struct tile *tile, int st);
 

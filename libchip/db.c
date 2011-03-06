@@ -149,6 +149,42 @@ struct tile *db_lookup_tile(struct db *db, int type, int x, int y)
 	return NULL;
 }
 
+int db_lookup_site(struct db *db, const char *name, struct tile **tile, int *index)
+{
+	int i, j;
+	struct tile_type *tt;
+	
+	for(i=0;i<db->chip.w*db->chip.h;i++) {
+		tt = &db->tile_types[db->chip.tiles[i].type];
+		for(j=0;j<tt->n_sites;j++)
+			if(strcmp(db->chip.tiles[i].sites[j].name, name) == 0) {
+				*tile = &db->chip.tiles[i];
+				*index = j;
+				return 1;
+			}
+	}
+	return 0;
+}
+
+int db_lookup_pin(struct site_type *st, const char *name, int *output, int *index)
+{
+	int i;
+	
+	for(i=0;i<st->n_inputs;i++)
+		if(strcmp(st->input_pin_names[i], name) == 0) {
+			*output = 0;
+			*index = i;
+			return 1;
+		}
+	for(i=0;i<st->n_outputs;i++)
+		if(strcmp(st->output_pin_names[i], name) == 0) {
+			*output = 1;
+			*index = i;
+			return 1;
+		}
+	return 0;
+}
+
 int db_get_unused_site_in_tile(struct db *db, struct tile *tile, int st)
 {
 	int i;
