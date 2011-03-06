@@ -124,22 +124,38 @@ struct c_wire *conn_follow(struct c_wire *w)
 	return w;
 }
 
+static void move_branch_to_wire(struct c_wire *w, struct c_wire_branch *b)
+{
+	struct c_wire_branch *i;
+	
+	i = w->bhead;
+	while(i != NULL) {
+		if((i->tile == b->tile) && (i->name == b->name)) {
+			free(b);
+			return;
+		}
+		i = i->next;
+	}
+	
+	b->next = w->bhead;
+	w->bhead = b;
+}
+
 void conn_join_wires(struct conn *c, struct c_wire *resulting, struct c_wire *merged)
 {
-	struct c_wire_branch *blast;
+	struct c_wire_branch *b1, *b2;
 	struct c_pip *plast;
 	
 	resulting = conn_follow(resulting);
 	merged = conn_follow(merged);
 	
-	if(resulting->bhead == NULL)
-		resulting->bhead = merged->bhead;
-	else {
-		blast = resulting->bhead;
-		while(blast->next != NULL)
-			blast = blast->next;
-		blast->next = merged->bhead;
+	b1 = merged->bhead;
+	while(b1 != NULL) {
+		b2 = b1->next;
+		move_branch_to_wire(resulting, b1);
+		b1 = b2;
 	}
+	merged->bhead = NULL;
 	
 	if(resulting->phead == NULL)
 		resulting->phead = merged->phead;
@@ -149,9 +165,8 @@ void conn_join_wires(struct conn *c, struct c_wire *resulting, struct c_wire *me
 			plast = plast->next;
 		plast->next = merged->phead;
 	}
-	
-	merged->bhead = NULL;
 	merged->phead = NULL;
+	
 	merged->joined = resulting;
 }
 
