@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -37,6 +38,7 @@ struct reached_wire {
 	struct reached_wire *leading_wire;
 	struct pip *leading_pip;
 	struct wire *this_wire;
+	int marker;
 	struct reached_wire *next;
 };
 
@@ -59,6 +61,7 @@ static struct router *router_create(struct db *db, struct wire *start, struct wi
 	r->head->leading_wire = NULL;
 	r->head->leading_pip = NULL;
 	r->head->this_wire = start;
+	r->head->marker = 0;
 	r->head->next = NULL;
 	
 	return r;
@@ -80,6 +83,7 @@ static struct reached_wire *router_reach(struct router *r, struct reached_wire *
 	rw->leading_wire = leading_wire;
 	rw->leading_pip = leading_pip;
 	rw->this_wire = w;
+	rw->marker = 0;
 	rw->next = r->head;
 	r->head = rw;
 	return rw;
@@ -87,13 +91,14 @@ static struct reached_wire *router_reach(struct router *r, struct reached_wire *
 
 static struct reached_wire *router_iterate(struct router *r)
 {
-	struct reached_wire *rw;
+	struct reached_wire *rw, *markerpos;
 	struct wire *w;
 	int i;
 	struct reached_wire *result;
 	
+	markerpos = r->head;
 	rw = r->head;
-	while(rw != NULL) {
+	while((rw != NULL) && !rw->marker) {
 		w = rw->this_wire;
 		for(i=0;i<w->n_pips;i++) {
 			result = router_reach(r, rw, &w->pips[i], &r->db->chip.wires[w->pips[i].endpoint]);
@@ -102,6 +107,7 @@ static struct reached_wire *router_iterate(struct router *r)
 		}
 		rw = rw->next;
 	}
+	markerpos->marker = 1;
 	return NULL;
 }
 
@@ -143,7 +149,7 @@ void route(struct db *db, struct wire *start, struct wire *end)
 	if(start == end)
 		return;
 	r = router_create(db, start, end);
-	for(i=0;i<10;i++) {
+	for(i=0;i<100;i++) {
 		rw = router_iterate(r);
 		if(rw != NULL) {
 			printf("Routing succeeded in %d iterations:\n", i+1);
