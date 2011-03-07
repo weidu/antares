@@ -2,35 +2,36 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <zlib.h>
 
 #include <chip/db.h>
 #include <chip/store.h>
 
-static void encode_char(FILE *fd, unsigned char x)
+static void encode_char(gzFile fd, unsigned char x)
 {
-	fwrite(&x, 1, 1, fd);
+	gzwrite(fd, &x, 1);
 }
 
-static void encode_short(FILE *fd, unsigned short x)
+static void encode_short(gzFile fd, unsigned short x)
 {
-	fwrite(&x, 2, 1, fd);
+	gzwrite(fd, &x, 2);
 }
 
-static void encode_int(FILE *fd, int x)
+static void encode_int(gzFile fd, int x)
 {
-	fwrite(&x, sizeof(int), 1, fd);
+	gzwrite(fd, &x, 4);
 }
 
-static void encode_string(FILE *fd, const char *str)
+static void encode_string(gzFile fd, const char *str)
 {
 	int len;
 	
 	len = strlen(str);
 	encode_char(fd, len);
-	fwrite(str, len, 1, fd);
+	gzwrite(fd, str, len);
 }
 
-static void encode_site(FILE *fd, struct site *site, int n_inputs, int n_outputs)
+static void encode_site(gzFile fd, struct site *site, int n_inputs, int n_outputs)
 {
 	int i;
 	
@@ -41,7 +42,7 @@ static void encode_site(FILE *fd, struct site *site, int n_inputs, int n_outputs
 		encode_int(fd, site->output_wires[i]);
 }
 
-static void encode_tile(FILE *fd, struct db *db, struct tile *tile)
+static void encode_tile(gzFile fd, struct db *db, struct tile *tile)
 {
 	int i;
 	struct tile_type *tt;
@@ -58,20 +59,20 @@ static void encode_tile(FILE *fd, struct db *db, struct tile *tile)
 	}
 }
 
-static void encode_tile_wire(FILE *fd, struct tile_wire *tw)
+static void encode_tile_wire(gzFile fd, struct tile_wire *tw)
 {
 	encode_short(fd, tw->tile);
 	encode_short(fd, tw->name);
 }
 
-static void encode_pip(FILE *fd, struct pip *p)
+static void encode_pip(gzFile fd, struct pip *p)
 {
 	encode_short(fd, p->tile);
 	encode_int(fd, p->endpoint);
 	encode_char(fd, p->bidir);
 }
 
-static void encode_wire(FILE *fd, struct wire *wire)
+static void encode_wire(gzFile fd, struct wire *wire)
 {
 	int i;
 	
@@ -83,7 +84,7 @@ static void encode_wire(FILE *fd, struct wire *wire)
 		encode_pip(fd, &wire->pips[i]);
 }
 
-static void encode_chip(FILE *fd, struct db *db, struct chip *chip)
+static void encode_chip(gzFile fd, struct db *db, struct chip *chip)
 {
 	int i;
 	
@@ -94,7 +95,7 @@ static void encode_chip(FILE *fd, struct db *db, struct chip *chip)
 		encode_wire(fd, &chip->wires[i]);
 }
 
-static void encode_tile_type(FILE *fd, struct tile_type *tt)
+static void encode_tile_type(gzFile fd, struct tile_type *tt)
 {
 	int i;
 	
@@ -107,7 +108,7 @@ static void encode_tile_type(FILE *fd, struct tile_type *tt)
 		encode_string(fd, tt->tile_wire_names[i]);
 }
 
-static void encode_site_type(FILE *fd, struct site_type *st)
+static void encode_site_type(gzFile fd, struct site_type *st)
 {
 	int i;
 	
@@ -120,7 +121,7 @@ static void encode_site_type(FILE *fd, struct site_type *st)
 		encode_string(fd, st->output_pin_names[i]);
 }
 
-void db_write_fd(struct db *db, FILE *fd)
+void db_write_fd(struct db *db, gzFile fd)
 {
 	int i;
 	
@@ -138,15 +139,18 @@ void db_write_fd(struct db *db, FILE *fd)
 
 void db_write_file(struct db *db, const char *filename)
 {
-	FILE *fd;
+	gzFile fd;
 	int r;
 
-	fd = fopen(filename, "wb");
+	fd = gzopen(filename, "wb");
 	if(fd == NULL) {
 		perror("db_write_file");
 		exit(EXIT_FAILURE);
 	}
 	db_write_fd(db, fd);
-	r = fclose(fd);
-	assert(r == 0);
+	r = gzclose(fd);
+	if(r != Z_OK) {
+		perror("db_write_file");
+		exit(EXIT_FAILURE);
+	}
 }
