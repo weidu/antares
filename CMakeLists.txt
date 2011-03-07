@@ -29,10 +29,12 @@ include_directories("${ZLIB_INCLUDE_DIRS}")
 
 # subdirectories
 
-add_subdirectory(libchip)
 add_subdirectory(libbanner)
+add_subdirectory(libanetlist)
+add_subdirectory(libchip)
 
 add_subdirectory(antares-mkdb)
+add_subdirectory(antares-pack)
 add_subdirectory(test-router)
 
 # packaging

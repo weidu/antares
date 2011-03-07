@@ -1,26 +1,21 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+
 #include <util.h>
 
-#include <chip/db.h>
-#include <chip/store.h>
 #include <banner/banner.h>
-
-#include "typelist.h"
-#include "chip.h"
 
 static void help()
 {
-	banner("Chip geometry compiler");
-	printf("Usage: antares-mkdb [parameters] <input.xdlrc>\n\n");
-	printf("The input database in XDLRC format (input.xdlrc) is mandatory.\n");
-	printf("To create such a file with Xilinx ISE, use:\n");
-	printf("  xdl -report -pips <chip>\n");
+	banner("Packer");
+	printf("Usage: antares-pack [parameters] <input.anl>\n");
+	printf("The input design in Antares netlist format (input.anl) is mandatory.\n");
 	printf("Parameters are:\n");
 	printf("  -h Display this help text and exit.\n");
-	printf("  -o <output.acg.gz> Set the name of the output file.\n");
+	printf("  -o <output.anl> Set the name of the output file.\n");
 }
 
 static char *mk_outname(char *inname)
@@ -33,7 +28,7 @@ static char *mk_outname(char *inname)
 	c = strrchr(inname, '.');
 	if(c != NULL)
 		*c = 0;
-	r = asprintf(&out, "%s.acg.gz", inname);
+	r = asprintf(&out, "%s-packed.anl", inname);
 	if(r == -1) abort();
 	free(inname);
 	return out;
@@ -41,11 +36,10 @@ static char *mk_outname(char *inname)
 
 int main(int argc, char *argv[])
 {
-	struct db *db;
 	int opt;
 	char *inname;
 	char *outname;
-	
+
 	outname = NULL;
 	while((opt = getopt(argc, argv, "ho:")) != -1) {
 		switch(opt) {
@@ -65,19 +59,14 @@ int main(int argc, char *argv[])
 	}
 	
 	if((argc - optind) != 1) {
-		fprintf(stderr, "antares-mkdb: missing input file. Use -h for help.\n");
+		fprintf(stderr, "antares-pack: missing input file. Use -h for help.\n");
 		exit(EXIT_FAILURE);
 	}
 	inname = argv[optind];
 	if(outname == NULL)
 		outname = mk_outname(inname);
 	
-	db = typelist_create_db(inname);
-	chip_update_db(db, inname);
-	db_write_file(db, outname);
-	db_free(db);
-	
 	free(outname);
-	
+
 	return 0;
 }
