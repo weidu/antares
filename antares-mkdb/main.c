@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
 				exit(EXIT_SUCCESS);
 				break;
 			case 'o':
+				free(outname);
 				outname = stralloc(optarg);
 				break;
 			default:
