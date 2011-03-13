@@ -290,7 +290,7 @@ def io_count(l):
 
 def generate_c(ti):
 	print "#include <stdlib.h>"
-	print "#include <anetlist/net.h>"
+	print "#include <anetlist/entities.h>"
 	print "#include <anetlist/%ss.h>" % entity_names[ti]
 	for p in entities:
 		if p.where[ti]:
@@ -322,19 +322,19 @@ def generate_c(ti):
 			print "\t{"
 			print "\t\t.type = ANETLIST_ENTITY_INTERNAL,"
 			print "\t\t.name = \"%s\"," % p.name
-			print "\t\t.attribute_count = %d," % len(p.attributes)
+			print "\t\t.n_attributes = %d," % len(p.attributes)
 			if p.attributes:
 				print "\t\t.attribute_names = %s_attribute_names," % p.name
 				print "\t\t.default_attributes = %s_attribute_defaults," % p.name
 			else:
 				print "\t\t.attribute_names = NULL,"
 				print "\t\t.default_attributes = NULL,"
-			print "\t\t.inputs = %d," % io_count(p.inputs)
+			print "\t\t.n_inputs = %d," % io_count(p.inputs)
 			if p.inputs:
 				print "\t\t.input_names = %s_inputs," % p.name
 			else:
 				print "\t\t.input_names = NULL,"
-			print "\t\t.outputs = %d," % io_count(p.outputs)
+			print "\t\t.n_outputs = %d," % io_count(p.outputs)
 			if p.outputs:
 				print "\t\t.output_names = %s_outputs" % p.name
 			else:
@@ -378,7 +378,7 @@ def generate_h(ti):
 				print_io_enum(("\tANETLIST_%s_%s_" % (string.upper(entity_names[ti]), p.name)), p.outputs)
 				print "};"
 
-	print "\nextern struct anetlist_entity anetlist_%ss[];\n" % entity_names[ti]
+	print "\nextern struct anetlist_entity anetlist_%ss[%d];\n" % (entity_names[ti], i)
 	
 	print "#endif /* __ANETLIST_%sS_H */" % string.upper(entity_names[ti])
 
