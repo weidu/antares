@@ -3,11 +3,13 @@
 
 #include <anetlist/net.h>
 
-struct anetlist *anetlist_create()
+struct anetlist *anetlist_new()
 {
 	struct anetlist *a;
 	
 	a = alloc_type(struct anetlist);
+	a->module_name = NULL;
+	a->part_name = NULL;
 	a->head = NULL;
 	return a;
 }
@@ -43,7 +45,27 @@ void anetlist_free(struct anetlist *a)
 		free_instance(i1);
 		i1 = i2;
 	}
+	free(a->module_name);
+	free(a->part_name);
 	free(a);
+}
+
+void anetlist_set_module_name(struct anetlist *a, const char *name)
+{
+	free(a->module_name);
+	if(name == NULL)
+		a->module_name = NULL;
+	else
+		a->module_name = stralloc(name);
+}
+
+void anetlist_set_part_name(struct anetlist *a, const char *name)
+{
+	free(a->part_name);
+	if(name == NULL)
+		a->part_name = NULL;
+	else
+		a->part_name = stralloc(name);
 }
 
 struct anetlist_instance *anetlist_instantiate(struct anetlist *a, const char *uid, struct anetlist_entity *e)

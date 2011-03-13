@@ -20,11 +20,16 @@ struct anetlist_endpoint {
 };
 
 struct anetlist {
+	char *module_name;
+	char *part_name;
 	struct anetlist_instance *head;
 };
 
-struct anetlist *anetlist_create();
+struct anetlist *anetlist_new();
 void anetlist_free(struct anetlist *a);
+
+void anetlist_set_module_name(struct anetlist *a, const char *name);
+void anetlist_set_part_name(struct anetlist *a, const char *name);
 
 struct anetlist_instance *anetlist_instantiate(struct anetlist *a, const char *uid, struct anetlist_entity *e);
 void anetlist_set_attribute(struct anetlist_instance *inst, int attr, const char *value);

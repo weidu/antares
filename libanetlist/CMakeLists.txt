@@ -58,4 +58,4 @@ set_property(
 
 #
 
-add_library(anetlist primitives.c bels.c sites.c entities.c net.c)
+add_library(anetlist primitives.c bels.c sites.c entities.c net.c interchange.c)

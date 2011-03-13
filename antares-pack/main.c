@@ -7,6 +7,9 @@
 #include <util.h>
 
 #include <banner/banner.h>
+#include <anetlist/net.h>
+#include <anetlist/interchange.h>
+#include <anetlist/entities.h>
 
 static void help()
 {
@@ -39,6 +42,7 @@ int main(int argc, char *argv[])
 	int opt;
 	char *inname;
 	char *outname;
+	struct anetlist *anl;
 
 	outname = NULL;
 	while((opt = getopt(argc, argv, "ho:")) != -1) {
@@ -65,6 +69,9 @@ int main(int argc, char *argv[])
 	inname = argv[optind];
 	if(outname == NULL)
 		outname = mk_outname(inname);
+	
+	anl = anetlist_parse_file(inname, entity_find_primitive);
+	anetlist_free(anl);
 	
 	free(outname);
 
