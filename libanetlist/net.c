@@ -23,6 +23,15 @@ static void free_instance(struct anetlist_instance *inst)
 	for(i=0;i<inst->e->n_attributes;i++)
 		free(inst->attributes[i]);
 	free(inst->attributes);
+	for(i=0;i<inst->e->n_inputs;i++) {
+		ep1 = inst->inputs[i];
+		while(ep1 != NULL) {
+			ep2 = ep1->next;
+			free(ep1);
+			ep1 = ep2;
+		}
+	}
+	free(inst->inputs);
 	for(i=0;i<inst->e->n_outputs;i++) {
 		ep1 = inst->outputs[i];
 		while(ep1 != NULL) {
@@ -79,6 +88,7 @@ struct anetlist_instance *anetlist_instantiate(struct anetlist *a, const char *u
 	inst->attributes = alloc_size(e->n_attributes*sizeof(char *));
 	for(i=0;i<e->n_attributes;i++)
 		inst->attributes[i] = stralloc(e->default_attributes[i]);
+	inst->inputs = alloc_size0(e->n_inputs*sizeof(struct anetlist_endpoint *));
 	inst->outputs = alloc_size0(e->n_outputs*sizeof(struct anetlist_endpoint *));
 	inst->next = a->head;
 	a->head = inst;
@@ -97,8 +107,14 @@ void anetlist_connect(struct anetlist_instance *start, int output, struct anetli
 	struct anetlist_endpoint *ep;
 	
 	ep = alloc_type(struct anetlist_endpoint);
+	ep->inst = start;
+	ep->pin = output;
+	ep->next = end->inputs[input];
+	end->inputs[input] = ep;
+	
+	ep = alloc_type(struct anetlist_endpoint);
 	ep->inst = end;
-	ep->input = input;
+	ep->pin = input;
 	ep->next = start->outputs[output];
 	start->outputs[output] = ep;
 }

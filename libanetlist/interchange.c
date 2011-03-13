@@ -252,7 +252,7 @@ static void write_nets(struct anetlist *a, FILE *fd)
 			if(ep != NULL) {
 				fprintf(fd, "net %s %s", inst->uid, inst->e->output_names[i]);
 				while(ep != NULL) {
-					fprintf(fd, " end %s %s", ep->inst->uid, ep->inst->e->input_names[ep->input]);
+					fprintf(fd, " end %s %s", ep->inst->uid, ep->inst->e->input_names[ep->pin]);
 					ep = ep->next;
 				}
 				fprintf(fd, "\n");

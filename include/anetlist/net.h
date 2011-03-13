@@ -9,13 +9,14 @@ struct anetlist_instance {
 	char *uid;				/* < unique identifier */
 	struct anetlist_entity *e;		/* < what entity we are an instance of */
 	char **attributes;			/* < attributes of this instance */
+	struct anetlist_endpoint **inputs;	/* < array of what each input is connected to */
 	struct anetlist_endpoint **outputs;	/* < array of what each output is connected to */
 	struct anetlist_instance *next;		/* < next instance in this manager */
 };
 
 struct anetlist_endpoint {
 	struct anetlist_instance *inst;		/* < instance at the endpoint */
-	int input;				/* < index of the input in the instance */
+	int pin;				/* < index of the pin in the instance */
 	struct anetlist_endpoint *next;		/* < next endpoint on this output */
 };
 
