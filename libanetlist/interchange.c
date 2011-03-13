@@ -134,7 +134,7 @@ static void parse_net(struct anetlist *a, char **saveptr)
 				fprintf(stderr, "Input pin not found: %s\n", s);
 				exit(EXIT_FAILURE);
 			}
-			anetlist_connect(start_inst, 1, end_inst, end_pin);
+			anetlist_connect(start_inst, start_pin, end_inst, end_pin);
 		} else {
 			fprintf(stderr, "Unexpected net parameter: %s\n", token);
 			exit(EXIT_FAILURE);
@@ -198,9 +198,77 @@ struct anetlist *anetlist_parse_fd(FILE *fd, anetlist_find_entity_c find_entity_
 	return a;
 }
 
+static void write_ports(struct anetlist *a, FILE *fd)
+{
+	struct anetlist_instance *inst;
+	int i;
+	
+	inst = a->head;
+	while(inst != NULL) {
+		if((inst->e->type == ANETLIST_ENTITY_PORT_OUT) || (inst->e->type == ANETLIST_ENTITY_PORT_IN)) {
+			if(inst->e->type == ANETLIST_ENTITY_PORT_OUT)
+				fprintf(fd, "output %s", inst->uid);
+			else
+				fprintf(fd, "input %s", inst->uid);
+			for(i=0;i<inst->e->n_attributes;i++)
+				fprintf(fd, " attr %s %s",
+					inst->e->attribute_names[i],
+					inst->attributes[i]);
+			fprintf(fd, "\n");
+		}
+		inst = inst->next;
+	}
+}
+
+static void write_instances(struct anetlist *a, FILE *fd)
+{
+	struct anetlist_instance *inst;
+	int i;
+	
+	inst = a->head;
+	while(inst != NULL) {
+		if(inst->e->type == ANETLIST_ENTITY_INTERNAL) {
+			fprintf(fd, "inst %s %s", inst->uid, inst->e->name);
+			for(i=0;i<inst->e->n_attributes;i++)
+				fprintf(fd, " attr %s %s",
+					inst->e->attribute_names[i],
+					inst->attributes[i]);
+			fprintf(fd, "\n");
+		}
+		inst = inst->next;
+	}
+}
+
+static void write_nets(struct anetlist *a, FILE *fd)
+{
+	struct anetlist_instance *inst;
+	struct anetlist_endpoint *ep;
+	int i;
+	
+	inst = a->head;
+	while(inst != NULL) {
+		for(i=0;i<inst->e->n_outputs;i++) {
+			ep = inst->outputs[i];
+			if(ep != NULL) {
+				fprintf(fd, "net %s %s", inst->uid, inst->e->output_names[i]);
+				while(ep != NULL) {
+					fprintf(fd, " end %s %s", ep->inst->uid, ep->inst->e->input_names[ep->input]);
+					ep = ep->next;
+				}
+				fprintf(fd, "\n");
+			}
+		}
+		inst = inst->next;
+	}
+}
+
 void anetlist_write_fd(struct anetlist *a, FILE *fd)
 {
-	/* TODO */
+	fprintf(fd, "module %s\n", a->module_name);
+	fprintf(fd, "part %s\n", a->part_name);
+	write_ports(a, fd);
+	write_instances(a, fd);
+	write_nets(a, fd);
 }
 
 struct anetlist *anetlist_parse_file(const char *filename, anetlist_find_entity_c find_entity_c)

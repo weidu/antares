@@ -71,6 +71,7 @@ int main(int argc, char *argv[])
 		outname = mk_outname(inname);
 	
 	anl = anetlist_parse_file(inname, entity_find_primitive);
+	anetlist_write_file(anl, outname);
 	anetlist_free(anl);
 	
 	free(outname);
