@@ -7,6 +7,7 @@ Released under GNU GPL version 3. See file COPYING.
 Build requirements:
  * Clang
  * CMake
+ * Python
 
 Build/installation instructions:
  $ mkdir build

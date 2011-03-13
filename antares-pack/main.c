@@ -10,7 +10,7 @@
 
 static void help()
 {
-	banner("Packer");
+	banner("BEL packer");
 	printf("Usage: antares-pack [parameters] <input.anl>\n");
 	printf("The input design in Antares netlist format (input.anl) is mandatory.\n");
 	printf("Parameters are:\n");

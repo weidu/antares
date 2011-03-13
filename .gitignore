@@ -1,1 +1,7 @@
 build
+include/anetlist/bels.h
+include/anetlist/primitives.h
+include/anetlist/sites.h
+libanetlist/bels.c
+libanetlist/primitives.c
+libanetlist/sites.c
