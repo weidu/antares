@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <util.h>
 
 #include <anetlist/net.h>
@@ -14,33 +15,32 @@ struct anetlist *anetlist_new()
 	return a;
 }
 
-static void free_instance(struct anetlist_instance *inst)
+void anetlist_free_endpoint_array(struct anetlist_endpoint **array, int n)
 {
 	int i;
 	struct anetlist_endpoint *ep1, *ep2;
+	
+	for(i=0;i<n;i++) {
+		ep1 = array[i];
+		while(ep1 != NULL) {
+			ep2 = ep1->next;
+			free(ep1);
+			ep1 = ep2;
+		}
+	}
+	free(array);
+}
+
+static void free_instance(struct anetlist_instance *inst)
+{
+	int i;
 	
 	free(inst->uid);
 	for(i=0;i<inst->e->n_attributes;i++)
 		free(inst->attributes[i]);
 	free(inst->attributes);
-	for(i=0;i<inst->e->n_inputs;i++) {
-		ep1 = inst->inputs[i];
-		while(ep1 != NULL) {
-			ep2 = ep1->next;
-			free(ep1);
-			ep1 = ep2;
-		}
-	}
-	free(inst->inputs);
-	for(i=0;i<inst->e->n_outputs;i++) {
-		ep1 = inst->outputs[i];
-		while(ep1 != NULL) {
-			ep2 = ep1->next;
-			free(ep1);
-			ep1 = ep2;
-		}
-	}
-	free(inst->outputs);
+	anetlist_free_endpoint_array(inst->inputs, inst->e->n_inputs);
+	anetlist_free_endpoint_array(inst->outputs, inst->e->n_outputs);
 	free(inst);
 }
 
@@ -57,6 +57,22 @@ void anetlist_free(struct anetlist *a)
 	free(a->module_name);
 	free(a->part_name);
 	free(a);
+}
+
+void anetlist_remove_instance(struct anetlist *a, struct anetlist_instance *inst)
+{
+	struct anetlist_instance *prev;
+	
+	if(inst == a->head)
+		a->head = a->head->next;
+	else {
+		prev = a->head;
+		while(prev->next != inst)
+			prev = prev->next;
+		prev->next = inst->next;
+	}
+	
+	free_instance(inst);
 }
 
 void anetlist_set_module_name(struct anetlist *a, const char *name)
@@ -109,7 +125,11 @@ void anetlist_connect(struct anetlist_instance *start, int output, struct anetli
 	ep = alloc_type(struct anetlist_endpoint);
 	ep->inst = start;
 	ep->pin = output;
-	ep->next = end->inputs[input];
+	if(end->inputs[input] != NULL) {
+		fprintf(stderr, "Two different outputs driving the same input\n");
+		exit(EXIT_FAILURE);
+	}
+	ep->next = NULL;
 	end->inputs[input] = ep;
 	
 	ep = alloc_type(struct anetlist_endpoint);

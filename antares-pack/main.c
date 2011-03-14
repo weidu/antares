@@ -11,6 +11,8 @@
 #include <anetlist/interchange.h>
 #include <anetlist/entities.h>
 
+#include "transform.h"
+
 static void help()
 {
 	banner("BEL packer");
@@ -42,7 +44,7 @@ int main(int argc, char *argv[])
 	int opt;
 	char *inname;
 	char *outname;
-	struct anetlist *anl;
+	struct anetlist *a;
 
 	outname = NULL;
 	while((opt = getopt(argc, argv, "ho:")) != -1) {
@@ -70,9 +72,10 @@ int main(int argc, char *argv[])
 	if(outname == NULL)
 		outname = mk_outname(inname);
 	
-	anl = anetlist_parse_file(inname, entity_find_primitive);
-	anetlist_write_file(anl, outname);
-	anetlist_free(anl);
+	a = anetlist_parse_file(inname, entity_find_primitive);
+	transform(a);
+	anetlist_write_file(a, outname);
+	anetlist_free(a);
 	
 	free(outname);
 

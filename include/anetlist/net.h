@@ -27,7 +27,9 @@ struct anetlist {
 };
 
 struct anetlist *anetlist_new();
+void anetlist_free_endpoint_array(struct anetlist_endpoint **array, int n);
 void anetlist_free(struct anetlist *a);
+void anetlist_remove_instance(struct anetlist *a, struct anetlist_instance *inst);
 
 void anetlist_set_module_name(struct anetlist *a, const char *name);
 void anetlist_set_part_name(struct anetlist *a, const char *name);
