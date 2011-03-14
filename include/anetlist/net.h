@@ -30,10 +30,12 @@ struct anetlist *anetlist_new();
 void anetlist_free_endpoint_array(struct anetlist_endpoint **array, int n);
 void anetlist_free(struct anetlist *a);
 void anetlist_remove_instance(struct anetlist *a, struct anetlist_instance *inst);
+void anetlist_disconnect_instance(struct anetlist_instance *inst);
 
 void anetlist_set_module_name(struct anetlist *a, const char *name);
 void anetlist_set_part_name(struct anetlist *a, const char *name);
 
+void anetlist_init_instance_fields(struct anetlist_entity *e, char ***attributes, struct anetlist_endpoint ***inputs, struct anetlist_endpoint ***outputs);
 struct anetlist_instance *anetlist_instantiate(struct anetlist *a, const char *uid, struct anetlist_entity *e);
 void anetlist_set_attribute(struct anetlist_instance *inst, int attr, const char *value);
 void anetlist_connect(struct anetlist_instance *start, int output, struct anetlist_instance *end, int input);

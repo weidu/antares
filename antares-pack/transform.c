@@ -23,9 +23,11 @@ static int lookup_pin_to(struct anetlist_endpoint **eps, int n_eps, struct anetl
 	int i;
 	struct anetlist_endpoint *ep;
 	
+	printf("looking for pin %d of %p (%s)\n", pin, inst, inst->e->name);
 	for(i=0;i<n_eps;i++) {
 		ep = eps[i];
 		while(ep != NULL) {
+			printf("hit pin %d of %p (%s)\n", ep->pin, ep->inst, ep->inst->e->name);
 			if((ep->inst == inst) && (ep->pin == pin))
 				return i;
 			ep = ep->next;
@@ -62,7 +64,7 @@ static void replace(struct anetlist *a, struct anetlist_instance **instances, in
 			if(ep != NULL) {
 				if(is_external(instances, n_instances, ep->inst)) {
 					extep = ep->inst->outputs[ep->pin];
-					while((extep->inst != ep->inst) || (extep->pin != ep->pin))
+					while((extep->inst != instances[i]) || (extep->pin != j))
 						extep = extep->next;
 					extep->inst = instances[0];
 					extep->pin = lookup_pin_to(tinputs, te->n_inputs, ep->inst, ep->pin);
@@ -77,7 +79,6 @@ static void replace(struct anetlist *a, struct anetlist_instance **instances, in
 		anetlist_remove_instance(a, instances[i]);
 	
 	/* do the replacement proper */
-	instances[0]->e = te;
 	for(i=0;i<instances[0]->e->n_attributes;i++)
 		free(instances[0]->attributes[i]);
 	free(instances[0]->attributes);
@@ -86,6 +87,7 @@ static void replace(struct anetlist *a, struct anetlist_instance **instances, in
 	instances[0]->inputs = tinputs;
 	anetlist_free_endpoint_array(instances[0]->outputs, instances[0]->e->n_outputs);
 	instances[0]->outputs = toutputs;
+	instances[0]->e = te;
 }
 
 static int get_primitive_index(struct anetlist_entity *e)
@@ -93,11 +95,63 @@ static int get_primitive_index(struct anetlist_entity *e)
 	int len;
 	int index;
 	
-	len = sizeof(anetlist_bels)/sizeof(anetlist_bels[0]);
-	index = e - anetlist_bels;
+	len = sizeof(anetlist_primitives)/sizeof(anetlist_primitives[0]);
+	index = e - anetlist_primitives;
 	if(index >= len)
 		index = -1;
 	return index;
+}
+
+static struct anetlist_endpoint *endpoints_dup(struct anetlist_endpoint *ep)
+{
+	struct anetlist_endpoint *r;
+	struct anetlist_endpoint *n;
+	
+	r = NULL;
+	while(ep != NULL) {
+		n = alloc_type(struct anetlist_endpoint);
+		n->inst = ep->inst;
+		n->pin = ep->pin;
+		n->next = r;
+		r = n;
+		ep = ep->next;
+	}
+	
+	return r;
+}
+
+static void transform_ibuf(struct anetlist *a, struct anetlist_instance *ibuf)
+{
+	struct anetlist_entity *te;
+	char **tattributes;
+	struct anetlist_endpoint **tinputs;
+	struct anetlist_endpoint **toutputs;
+	struct anetlist_instance *instances[2];
+	
+	te = &anetlist_bels[ANETLIST_BEL_IOBM];
+	anetlist_init_instance_fields(te, &tattributes, &tinputs, &toutputs);
+	// TODO: how to set the IOB in pure input mode?
+	toutputs[ANETLIST_BEL_IOBM_I] = endpoints_dup(ibuf->outputs[ANETLIST_PRIMITIVE_IBUF_O]);
+	instances[0] = ibuf;
+	instances[1] = ibuf->inputs[ANETLIST_PRIMITIVE_IBUF_I]->inst; /* remove the input port */
+	replace(a, instances, 2, te, tattributes, tinputs, toutputs);
+}
+
+static void transform_obuf(struct anetlist *a, struct anetlist_instance *obuf)
+{
+	struct anetlist_entity *te;
+	char **tattributes;
+	struct anetlist_endpoint **tinputs;
+	struct anetlist_endpoint **toutputs;
+	struct anetlist_instance *instances[2];
+	
+	te = &anetlist_bels[ANETLIST_BEL_IOBM];
+	anetlist_init_instance_fields(te, &tattributes, &tinputs, &toutputs);
+	// TODO: how to set the IOB in pure output mode?
+	tinputs[ANETLIST_BEL_IOBM_O] = endpoints_dup(obuf->inputs[ANETLIST_PRIMITIVE_OBUF_I]);
+	instances[0] = obuf;
+	instances[1] = obuf->outputs[ANETLIST_PRIMITIVE_OBUF_O]->inst; /* remove the output port */
+	replace(a, instances, 2, te, tattributes, tinputs, toutputs);
 }
 
 void transform(struct anetlist *a)
@@ -111,6 +165,12 @@ void transform(struct anetlist *a)
 			case ANETLIST_ENTITY_INTERNAL:
 				pi = get_primitive_index(inst->e);
 				switch(pi) {
+					case ANETLIST_PRIMITIVE_IBUF:
+						transform_ibuf(a, inst);
+						break;
+					case ANETLIST_PRIMITIVE_OBUF:
+						transform_obuf(a, inst);
+						break;
 					default:
 						fprintf(stderr, "Unhandled primitive: %s\n", inst->e->name);
 						exit(EXIT_FAILURE);
@@ -118,8 +178,8 @@ void transform(struct anetlist *a)
 				}
 				break;
 			case ANETLIST_ENTITY_PORT_OUT:
-				break;
 			case ANETLIST_ENTITY_PORT_IN:
+				/* nothing to do: those get removed as part of I/O buffer transformation */
 				break;
 			default:
 				assert(0);

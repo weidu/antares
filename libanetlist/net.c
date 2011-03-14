@@ -75,6 +75,43 @@ void anetlist_remove_instance(struct anetlist *a, struct anetlist_instance *inst
 	free_instance(inst);
 }
 
+void anetlist_disconnect_instance(struct anetlist_instance *inst)
+{
+	int i;
+	struct anetlist_endpoint *ep, *ep2, *sep, *pep;
+	
+	/* remove sinks this instance outputs to */
+	for(i=0;i<inst->e->n_outputs;i++) {
+		ep = inst->outputs[i];
+		while(ep != NULL) {
+			free(ep->inst->inputs[ep->pin]);
+			ep->inst->inputs[ep->pin] = NULL;
+			ep = ep->next;
+		}
+	}
+	
+	/* remove sources this instance sinks */
+	for(i=0;i<inst->e->n_inputs;i++) {
+		ep = inst->inputs[i];
+		if(ep != NULL) {
+			sep = ep->inst->outputs[ep->pin];
+			pep = NULL;
+			while((sep->inst != inst) || (sep->pin != i)) {
+				sep = sep->next;
+				pep = sep;
+			}
+			if(sep == ep->inst->outputs[ep->pin]) {
+				ep2 = sep->next;
+				free(sep);
+				ep->inst->outputs[ep->pin] = ep2;
+			} else {
+				pep->next = sep->next;
+				free(sep);
+			}
+		}
+	}
+}
+
 void anetlist_set_module_name(struct anetlist *a, const char *name)
 {
 	free(a->module_name);
@@ -93,19 +130,35 @@ void anetlist_set_part_name(struct anetlist *a, const char *name)
 		a->part_name = stralloc(name);
 }
 
+void anetlist_init_instance_fields(struct anetlist_entity *e, char ***attributes, struct anetlist_endpoint ***inputs, struct anetlist_endpoint ***outputs)
+{
+	int i;
+	
+	if(e->n_attributes == 0)
+		*attributes = NULL;
+	else {
+		*attributes = alloc_size(e->n_attributes*sizeof(char *));
+		for(i=0;i<e->n_attributes;i++)
+			(*attributes)[i] = stralloc(e->default_attributes[i]);
+	}
+	if(e->n_inputs == 0)
+		*inputs = NULL;
+	else
+		*inputs = alloc_size0(e->n_inputs*sizeof(struct anetlist_endpoint *));
+	if(e->n_outputs == 0)
+		*outputs = NULL;
+	else
+		*outputs = alloc_size0(e->n_outputs*sizeof(struct anetlist_endpoint *));
+}
+
 struct anetlist_instance *anetlist_instantiate(struct anetlist *a, const char *uid, struct anetlist_entity *e)
 {
 	struct anetlist_instance *inst;
-	int i;
 	
 	inst = alloc_type(struct anetlist_instance);
 	inst->uid = stralloc(uid);
 	inst->e = e;
-	inst->attributes = alloc_size(e->n_attributes*sizeof(char *));
-	for(i=0;i<e->n_attributes;i++)
-		inst->attributes[i] = stralloc(e->default_attributes[i]);
-	inst->inputs = alloc_size0(e->n_inputs*sizeof(struct anetlist_endpoint *));
-	inst->outputs = alloc_size0(e->n_outputs*sizeof(struct anetlist_endpoint *));
+	anetlist_init_instance_fields(e, &inst->attributes, &inst->inputs, &inst->outputs);
 	inst->next = a->head;
 	a->head = inst;
 
