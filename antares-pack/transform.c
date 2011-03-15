@@ -23,11 +23,11 @@ static int lookup_pin_to(struct anetlist_endpoint **eps, int n_eps, struct anetl
 	int i;
 	struct anetlist_endpoint *ep;
 	
-	printf("looking for pin %d of %p (%s)\n", pin, inst, inst->e->name);
+	//printf("looking for pin %d of %p (%s)\n", pin, inst, inst->e->name);
 	for(i=0;i<n_eps;i++) {
 		ep = eps[i];
 		while(ep != NULL) {
-			printf("hit pin %d of %p (%s)\n", ep->pin, ep->inst, ep->inst->e->name);
+			//printf("hit pin %d of %p (%s)\n", ep->pin, ep->inst, ep->inst->e->name);
 			if((ep->inst == inst) && (ep->pin == pin))
 				return i;
 			ep = ep->next;
@@ -127,6 +127,7 @@ static void transform_ibuf(struct anetlist *a, struct anetlist_instance *ibuf)
 	struct anetlist_endpoint **tinputs;
 	struct anetlist_endpoint **toutputs;
 	struct anetlist_instance *instances[2];
+	char *name;
 	
 	te = &anetlist_bels[ANETLIST_BEL_IOBM];
 	anetlist_init_instance_fields(te, &tattributes, &tinputs, &toutputs);
@@ -134,7 +135,11 @@ static void transform_ibuf(struct anetlist *a, struct anetlist_instance *ibuf)
 	toutputs[ANETLIST_BEL_IOBM_I] = endpoints_dup(ibuf->outputs[ANETLIST_PRIMITIVE_IBUF_O]);
 	instances[0] = ibuf;
 	instances[1] = ibuf->inputs[ANETLIST_PRIMITIVE_IBUF_I]->inst; /* remove the input port */
+	name = stralloc(instances[1]->uid); /* save input port name (needed to identify the I/O) */
 	replace(a, instances, 2, te, tattributes, tinputs, toutputs);
+	/* rename the IOB */
+	free(instances[0]->uid);
+	instances[0]->uid = name;
 }
 
 static void transform_obuf(struct anetlist *a, struct anetlist_instance *obuf)
@@ -144,6 +149,7 @@ static void transform_obuf(struct anetlist *a, struct anetlist_instance *obuf)
 	struct anetlist_endpoint **tinputs;
 	struct anetlist_endpoint **toutputs;
 	struct anetlist_instance *instances[2];
+	char *name;
 	
 	te = &anetlist_bels[ANETLIST_BEL_IOBM];
 	anetlist_init_instance_fields(te, &tattributes, &tinputs, &toutputs);
@@ -151,7 +157,90 @@ static void transform_obuf(struct anetlist *a, struct anetlist_instance *obuf)
 	tinputs[ANETLIST_BEL_IOBM_O] = endpoints_dup(obuf->inputs[ANETLIST_PRIMITIVE_OBUF_I]);
 	instances[0] = obuf;
 	instances[1] = obuf->outputs[ANETLIST_PRIMITIVE_OBUF_O]->inst; /* remove the output port */
+	name = stralloc(instances[1]->uid); /* save output port name (needed to identify the I/O) */
 	replace(a, instances, 2, te, tattributes, tinputs, toutputs);
+	/* rename the IOB */
+	free(instances[0]->uid);
+	instances[0]->uid = name;
+}
+
+static void transform_lut(struct anetlist *a, struct anetlist_instance *lut)
+{
+	struct anetlist_entity *te;
+	char **tattributes;
+	struct anetlist_endpoint **tinputs;
+	struct anetlist_endpoint **toutputs;
+	int i;
+	
+	te = &anetlist_bels[ANETLIST_BEL_LUT6_2];
+	anetlist_init_instance_fields(te, &tattributes, &tinputs, &toutputs);
+	strcpy(tattributes[0]+16-strlen(lut->attributes[0]), lut->attributes[0]);
+	for(i=0;i<lut->e->n_inputs;i++)
+		tinputs[i] = endpoints_dup(lut->inputs[i]);
+	toutputs[ANETLIST_BEL_LUT6_2_O6] = endpoints_dup(lut->outputs[0]);
+	replace(a, &lut, 1, te, tattributes, tinputs, toutputs);
+}
+
+static void transform_bufgp(struct anetlist *a, struct anetlist_instance *bufgp)
+{
+	struct anetlist_entity *te;
+	char **tattributes;
+	struct anetlist_endpoint **tinputs;
+	struct anetlist_endpoint **toutputs;
+	struct anetlist_instance *instances[2];
+	char *name;
+	struct anetlist_instance *iob;
+	
+	/* promote the BUFG to BUFGMUX */
+	te = &anetlist_bels[ANETLIST_BEL_BUFGMUX];
+	anetlist_init_instance_fields(te, &tattributes, &tinputs, &toutputs);
+	// TODO: how to set the BUFGMUX in BUFG mode?
+	toutputs[ANETLIST_BEL_BUFGMUX_O] = endpoints_dup(bufgp->outputs[ANETLIST_PRIMITIVE_BUFGP_O]);
+	instances[0] = bufgp;
+	instances[1] = bufgp->inputs[ANETLIST_PRIMITIVE_BUFGP_I]->inst; /* remove the input port */
+	name = stralloc(instances[1]->uid); /* save input port name (needed to identify the I/O) */
+	replace(a, instances, 2, te, tattributes, tinputs, toutputs);
+	
+	/* insert IOB at the input */
+	iob = anetlist_instantiate(a, name, &anetlist_bels[ANETLIST_BEL_IOBM]);
+	free(name);
+	anetlist_connect(iob, ANETLIST_BEL_IOBM_I, instances[0], ANETLIST_BEL_BUFGMUX_I0);
+}
+
+static void transform_carrychain(struct anetlist *a, struct anetlist_instance *bufgp)
+{
+	printf("TODO: carry chain packing\n");
+}
+
+static void transform_fd(struct anetlist *a, struct anetlist_instance *fd)
+{
+	struct anetlist_entity *te;
+	char **tattributes;
+	struct anetlist_endpoint **tinputs;
+	struct anetlist_endpoint **toutputs;
+	
+	te = &anetlist_bels[ANETLIST_BEL_FDRE];
+	anetlist_init_instance_fields(te, &tattributes, &tinputs, &toutputs);
+	tinputs[ANETLIST_BEL_FDRE_C] = endpoints_dup(fd->inputs[ANETLIST_PRIMITIVE_FD_C]);
+	tinputs[ANETLIST_BEL_FDRE_D] = endpoints_dup(fd->inputs[ANETLIST_PRIMITIVE_FD_D]);
+	toutputs[ANETLIST_BEL_FDRE_Q] = endpoints_dup(fd->outputs[ANETLIST_PRIMITIVE_FD_Q]);
+	replace(a, &fd, 1, te, tattributes, tinputs, toutputs);
+}
+
+static void transform_fde(struct anetlist *a, struct anetlist_instance *fde)
+{
+	struct anetlist_entity *te;
+	char **tattributes;
+	struct anetlist_endpoint **tinputs;
+	struct anetlist_endpoint **toutputs;
+	
+	te = &anetlist_bels[ANETLIST_BEL_FDRE];
+	anetlist_init_instance_fields(te, &tattributes, &tinputs, &toutputs);
+	tinputs[ANETLIST_BEL_FDRE_C] = endpoints_dup(fde->inputs[ANETLIST_PRIMITIVE_FDE_C]);
+	tinputs[ANETLIST_BEL_FDRE_CE] = endpoints_dup(fde->inputs[ANETLIST_PRIMITIVE_FDE_CE]);
+	tinputs[ANETLIST_BEL_FDRE_D] = endpoints_dup(fde->inputs[ANETLIST_PRIMITIVE_FDE_D]);
+	toutputs[ANETLIST_BEL_FDRE_Q] = endpoints_dup(fde->outputs[ANETLIST_PRIMITIVE_FDE_Q]);
+	replace(a, &fde, 1, te, tattributes, tinputs, toutputs);
 }
 
 void transform(struct anetlist *a)
@@ -171,9 +260,32 @@ void transform(struct anetlist *a)
 					case ANETLIST_PRIMITIVE_OBUF:
 						transform_obuf(a, inst);
 						break;
+					case ANETLIST_PRIMITIVE_LUT1:
+					case ANETLIST_PRIMITIVE_LUT2:
+					case ANETLIST_PRIMITIVE_LUT3:
+					case ANETLIST_PRIMITIVE_LUT4:
+					case ANETLIST_PRIMITIVE_LUT5:
+					case ANETLIST_PRIMITIVE_LUT6:
+						transform_lut(a, inst);
+						break;
+					case ANETLIST_PRIMITIVE_BUFGP:
+						transform_bufgp(a, inst);
+						break;
+					case ANETLIST_PRIMITIVE_MUXCY:
+					case ANETLIST_PRIMITIVE_XORCY:
+						transform_carrychain(a, inst);
+						break;
+					case ANETLIST_PRIMITIVE_FD:
+						transform_fd(a, inst);
+						break;
+					case ANETLIST_PRIMITIVE_FDE:
+						transform_fde(a, inst);
+						break;
 					default:
-						fprintf(stderr, "Unhandled primitive: %s\n", inst->e->name);
-						exit(EXIT_FAILURE);
+						if(!inst->e->bel) {
+							fprintf(stderr, "Unhandled primitive: %s\n", inst->e->name);
+							exit(EXIT_FAILURE);
+						}
 						break;
 				}
 				break;

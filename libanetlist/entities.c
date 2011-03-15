@@ -64,6 +64,7 @@ static char *port_pin_names[] = {"P"};
 
 struct anetlist_entity entity_input_port = {
 	.type = ANETLIST_ENTITY_PORT_IN,
+	.bel = 0,
 	.name = "INPUT_PORT",
 	.n_attributes = 0,
 	.attribute_names = NULL,
@@ -76,6 +77,7 @@ struct anetlist_entity entity_input_port = {
 
 struct anetlist_entity entity_output_port = {
 	.type = ANETLIST_ENTITY_PORT_OUT,
+	.bel = 0,
 	.name = "OUTPUT_PORT",
 	.n_attributes = 0,
 	.attribute_names = NULL,

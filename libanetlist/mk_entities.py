@@ -321,6 +321,7 @@ def generate_c(ti):
 		if p.where[ti]:
 			print "\t{"
 			print "\t\t.type = ANETLIST_ENTITY_INTERNAL,"
+			print "\t\t.bel = %d," % int(p.where[1])
 			print "\t\t.name = \"%s\"," % p.name
 			print "\t\t.n_attributes = %d," % len(p.attributes)
 			if p.attributes:

@@ -9,6 +9,7 @@ enum {
 
 struct anetlist_entity {
 	int type;				/* < internal or I/O port */
+	int bel;				/* < can this entity be a BEL? */
 	char *name;				/* < name of the entity */
 	int n_attributes;			/* < number of attributes */
 	char **attribute_names;			/* < names of attributes */
