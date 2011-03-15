@@ -108,22 +108,29 @@ static int get_primitive_index(struct anetlist_entity *e)
 	return index;
 }
 
-static struct anetlist_endpoint *endpoints_dup(struct anetlist_endpoint *ep)
+static struct anetlist_endpoint *endpoints_dup_excl(struct anetlist_endpoint *ep, struct anetlist_entity *excl1, struct anetlist_entity *excl2)
 {
 	struct anetlist_endpoint *r;
 	struct anetlist_endpoint *n;
 	
 	r = NULL;
 	while(ep != NULL) {
-		n = alloc_type(struct anetlist_endpoint);
-		n->inst = ep->inst;
-		n->pin = ep->pin;
-		n->next = r;
-		r = n;
+		if((ep->inst->e != excl1) && (ep->inst->e != excl2)) {
+			n = alloc_type(struct anetlist_endpoint);
+			n->inst = ep->inst;
+			n->pin = ep->pin;
+			n->next = r;
+			r = n;
+		}
 		ep = ep->next;
 	}
 	
 	return r;
+}
+
+static struct anetlist_endpoint *endpoints_dup(struct anetlist_endpoint *ep)
+{
+	return endpoints_dup_excl(ep, NULL, NULL);
 }
 
 static void transform_ibuf(struct anetlist *a, struct anetlist_instance *ibuf)
@@ -295,6 +302,7 @@ static struct anetlist_instance *find_xorcy(struct anetlist_instance *cce)
 	return NULL;
 }
 
+/* TODO: kludgy as hell... try to rewrite that at some point */
 static void transform_carrychain(struct anetlist *a, struct anetlist_instance *cce)
 {
 	struct anetlist_instance *muxcy, *xorcy;
@@ -333,7 +341,10 @@ static void transform_carrychain(struct anetlist *a, struct anetlist_instance *c
 			tinputs[2*stage+1] = endpoints_dup(xorcy->inputs[ANETLIST_PRIMITIVE_XORCY_LI]); /* Sx */
 		if(xorcy != NULL)
 			toutputs[2*stage+0] = endpoints_dup(xorcy->outputs[ANETLIST_PRIMITIVE_XORCY_O]); /* Ox */
-		toutputs[2*stage+1] = endpoints_dup(muxcy->outputs[ANETLIST_PRIMITIVE_MUXCY_O]); /* COx */
+		if(stage == 3)
+			toutputs[2*stage+1] = endpoints_dup(muxcy->outputs[ANETLIST_PRIMITIVE_MUXCY_O]); /* COx */
+		else
+			toutputs[2*stage+1] = endpoints_dup_excl(muxcy->outputs[ANETLIST_PRIMITIVE_MUXCY_O], &anetlist_primitives[ANETLIST_PRIMITIVE_MUXCY], &anetlist_primitives[ANETLIST_PRIMITIVE_XORCY]); /* COx */
 		if(muxcy != cce)
 			instances[ip++] = muxcy;
 		if((xorcy != NULL) && (xorcy != cce))
