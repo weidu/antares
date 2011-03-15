@@ -52,7 +52,10 @@ static void replace(struct anetlist *a, struct anetlist_instance **instances, in
 					assert((extep != NULL) && (extep->next == NULL));
 					extep->inst = instances[0];
 					extep->pin = lookup_pin_to(toutputs, te->n_outputs, ep->inst, ep->pin);
-					assert(extep->pin != -1);
+					if(extep->pin == -1) {
+						printf("failed to find toutput connecting to %p (%s:%s) / %p (%s)\n", instances[i], instances[i]->e->name, instances[i]->e->input_names[j], ep->inst, ep->inst->e->name);
+						abort();
+					}
 				}
 				ep = ep->next;
 			}
@@ -68,7 +71,10 @@ static void replace(struct anetlist *a, struct anetlist_instance **instances, in
 						extep = extep->next;
 					extep->inst = instances[0];
 					extep->pin = lookup_pin_to(tinputs, te->n_inputs, ep->inst, ep->pin);
-					assert(extep->pin != -1);
+					if(extep->pin == -1) {
+						printf("failed to find tinput connecting to %p (%s:%s) / %p (%s)\n", instances[i], instances[i]->e->name, instances[i]->e->input_names[j], ep->inst, ep->inst->e->name);
+						abort();
+					}
 				}
 			}
 		}
@@ -207,9 +213,138 @@ static void transform_bufgp(struct anetlist *a, struct anetlist_instance *bufgp)
 	anetlist_connect(iob, ANETLIST_BEL_IOBM_I, instances[0], ANETLIST_BEL_BUFGMUX_I0);
 }
 
-static void transform_carrychain(struct anetlist *a, struct anetlist_instance *bufgp)
+static int carrychain_count_down(struct anetlist_instance *muxcy)
 {
-	printf("TODO: carry chain packing\n");
+	int count;
+		
+	count = 0;
+	while((muxcy != NULL) && (muxcy->e == &anetlist_primitives[ANETLIST_PRIMITIVE_MUXCY])) {
+		muxcy = muxcy->inputs[ANETLIST_PRIMITIVE_MUXCY_CI]->inst;
+		count++;
+	}
+	
+	return count;
+}
+
+static struct anetlist_instance *carrychain_walk_down(struct anetlist_instance *muxcy)
+{
+	return muxcy->inputs[ANETLIST_PRIMITIVE_MUXCY_CI]->inst;
+}
+
+static struct anetlist_instance *carrychain_walk_up(struct anetlist *a, struct anetlist_instance *muxcy)
+{
+	struct anetlist_endpoint *ep;
+	int drives_xorcy;
+	struct anetlist_instance *n;
+
+	ep = muxcy->outputs[ANETLIST_PRIMITIVE_MUXCY_O];
+	drives_xorcy = 0;
+	while(ep != NULL) {
+		if((ep->inst->e == &anetlist_primitives[ANETLIST_PRIMITIVE_MUXCY]) && (ep->pin == ANETLIST_PRIMITIVE_MUXCY_CI))
+			return ep->inst;
+		if(ep->inst->e == &anetlist_primitives[ANETLIST_PRIMITIVE_XORCY])
+			drives_xorcy = 1;
+		ep = ep->next;
+	}
+	/* Last element of a chain can be a XORCY without MUXCY.
+	 * Add the MUXCY in this case.
+	 */
+	if(!drives_xorcy)
+		return NULL;
+	n = anetlist_instantiate(a, "dontcare", &anetlist_primitives[ANETLIST_PRIMITIVE_MUXCY]);
+	anetlist_connect(muxcy, ANETLIST_PRIMITIVE_MUXCY_O, n, ANETLIST_PRIMITIVE_MUXCY_CI);
+	return n;
+}
+
+static struct anetlist_instance *find_muxcy(struct anetlist *a, struct anetlist_instance *cce)
+{
+	struct anetlist_endpoint *in_ep, *ep;
+	struct anetlist_instance *muxcy;
+	
+	if(cce->e == &anetlist_primitives[ANETLIST_PRIMITIVE_MUXCY])
+		return cce;
+	assert(cce->e == &anetlist_primitives[ANETLIST_PRIMITIVE_XORCY]);
+	in_ep = cce->inputs[ANETLIST_PRIMITIVE_XORCY_CI];
+	ep = in_ep->inst->outputs[in_ep->pin];
+	while(ep != NULL) {
+		if((ep->inst->e == &anetlist_primitives[ANETLIST_PRIMITIVE_MUXCY]) && (ep->pin == ANETLIST_PRIMITIVE_MUXCY_CI))
+			return ep->inst;
+		ep = ep->next;
+	}
+	/* Assume the MUXCY was pruned, and create it */
+	muxcy = anetlist_instantiate(a, "dontcare", &anetlist_primitives[ANETLIST_PRIMITIVE_MUXCY]);
+	anetlist_connect(in_ep->inst, in_ep->pin, muxcy, ANETLIST_PRIMITIVE_MUXCY_CI);
+	return muxcy;
+}
+
+static struct anetlist_instance *find_xorcy(struct anetlist_instance *cce)
+{
+	struct anetlist_endpoint *in_ep, *ep;
+	
+	if(cce->e == &anetlist_primitives[ANETLIST_PRIMITIVE_XORCY])
+		return cce;
+	if(cce->e != &anetlist_primitives[ANETLIST_PRIMITIVE_MUXCY])
+		return NULL;
+	in_ep = cce->inputs[ANETLIST_PRIMITIVE_MUXCY_CI];
+	ep = in_ep->inst->outputs[in_ep->pin];
+	while(ep != NULL) {
+		if((ep->inst->e == &anetlist_primitives[ANETLIST_PRIMITIVE_XORCY]) && (ep->pin == ANETLIST_PRIMITIVE_XORCY_CI))
+			return ep->inst;
+		ep = ep->next;
+	}
+	return NULL;
+}
+
+static void transform_carrychain(struct anetlist *a, struct anetlist_instance *cce)
+{
+	struct anetlist_instance *muxcy, *xorcy;
+	int i, tap;
+	struct anetlist_instance *aligned;
+	struct anetlist_entity *te;
+	char **tattributes;
+	struct anetlist_endpoint **tinputs;
+	struct anetlist_endpoint **toutputs;
+	int stage;
+	struct anetlist_instance *instances[8];
+	int ip;
+	
+	muxcy = find_muxcy(a, cce);
+	instances[0] = cce;
+	ip = 1;
+
+	tap = (carrychain_count_down(muxcy)-1) % 4;
+	aligned = muxcy;
+	for(i=0;i<tap;i++)
+		aligned = carrychain_walk_down(aligned);
+	
+	te = &anetlist_bels[ANETLIST_BEL_CARRY4];
+	anetlist_init_instance_fields(te, &tattributes, &tinputs, &toutputs);
+	
+	tinputs[ANETLIST_BEL_CARRY4_CIN] = endpoints_dup(aligned->inputs[ANETLIST_PRIMITIVE_MUXCY_CI]);
+	
+	stage = 0;
+	muxcy = aligned;
+	while(muxcy != NULL) {
+		xorcy = find_xorcy(muxcy);
+		tinputs[2*stage+0] = endpoints_dup(muxcy->inputs[ANETLIST_PRIMITIVE_MUXCY_DI]); /* DIx */
+		if(xorcy == NULL)
+			tinputs[2*stage+1] = endpoints_dup(muxcy->inputs[ANETLIST_PRIMITIVE_MUXCY_S]); /* Sx */
+		else
+			tinputs[2*stage+1] = endpoints_dup(xorcy->inputs[ANETLIST_PRIMITIVE_XORCY_LI]); /* Sx */
+		if(xorcy != NULL)
+			toutputs[2*stage+0] = endpoints_dup(xorcy->outputs[ANETLIST_PRIMITIVE_XORCY_O]); /* Ox */
+		toutputs[2*stage+1] = endpoints_dup(muxcy->outputs[ANETLIST_PRIMITIVE_MUXCY_O]); /* COx */
+		if(muxcy != cce)
+			instances[ip++] = muxcy;
+		if((xorcy != NULL) && (xorcy != cce))
+			instances[ip++] = xorcy;
+		stage++;
+		if(stage < 4)
+			muxcy = carrychain_walk_up(a, muxcy);
+		else
+			muxcy = NULL;
+	}
+	replace(a, instances, ip, te, tattributes, tinputs, toutputs);
 }
 
 static void transform_fd(struct anetlist *a, struct anetlist_instance *fd)

@@ -189,11 +189,11 @@ entities = [
 		where = [True, True, False],
 		attributes = [], # TODO: CYINIT select
 		inputs = [
-			(1, "CYINIT"), (1, "CIN"),
 			(1, "DI0"), (1, "S0"),
 			(1, "DI1"), (1, "S1"),
 			(1, "DI2"), (1, "S2"),
-			(1, "DI3"), (1, "S3")
+			(1, "DI3"), (1, "S3"),
+			(1, "CYINIT"), (1, "CIN")
 		],
 		outputs = [
 			(1, "O0"), (1, "CO0"),
