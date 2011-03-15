@@ -91,6 +91,17 @@ static void parse_inst(struct anetlist *a, char **saveptr, int command, anetlist
 				exit(EXIT_FAILURE);
 			}
 			value = get_token(saveptr);
+			if(*value == '"') {
+				char *c;
+				
+				value++;
+				c = value + strlen(value) - 1;
+				if(*c != '"') {
+					fprintf(stderr, "Missing quote in attribute value\n");
+					exit(EXIT_FAILURE);
+				}
+				*c = 0;
+			}
 			anetlist_set_attribute(inst, attr, value);
 		} else {
 			fprintf(stderr, "Unexpected entity parameter: %s\n", token);
@@ -210,10 +221,12 @@ static void write_ports(struct anetlist *a, FILE *fd)
 				fprintf(fd, "output %s", inst->uid);
 			else
 				fprintf(fd, "input %s", inst->uid);
-			for(i=0;i<inst->e->n_attributes;i++)
-				fprintf(fd, " attr %s %s",
-					inst->e->attribute_names[i],
-					inst->attributes[i]);
+			for(i=0;i<inst->e->n_attributes;i++) {
+				if(strcmp(inst->attributes[i], inst->e->default_attributes[i]) != 0)
+					fprintf(fd, " attr %s \"%s\"",
+						inst->e->attribute_names[i],
+						inst->attributes[i]);
+			}
 			fprintf(fd, "\n");
 		}
 		inst = inst->next;
@@ -229,10 +242,12 @@ static void write_instances(struct anetlist *a, FILE *fd)
 	while(inst != NULL) {
 		if(inst->e->type == ANETLIST_ENTITY_INTERNAL) {
 			fprintf(fd, "inst %s %s", inst->uid, inst->e->name);
-			for(i=0;i<inst->e->n_attributes;i++)
-				fprintf(fd, " attr %s %s",
-					inst->e->attribute_names[i],
-					inst->attributes[i]);
+			for(i=0;i<inst->e->n_attributes;i++) {
+				if(strcmp(inst->attributes[i], inst->e->default_attributes[i]) != 0)
+					fprintf(fd, " attr %s \"%s\"",
+						inst->e->attribute_names[i],
+						inst->attributes[i]);
+			}
 			fprintf(fd, "\n");
 		}
 		inst = inst->next;
