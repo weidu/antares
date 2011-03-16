@@ -13,6 +13,8 @@ set(ANTARES_VERSION_MAJOR 0)
 set(ANTARES_VERSION_MINOR 0)
 set(ANTARES_VERSION_PATCH 1)
 
+set(SUPPORTED_CHIPS xc6slx4-tqg144 xc6slx45-fgg484)
+
 configure_file(
 	"${PROJECT_SOURCE_DIR}/include/config.h.in"
 	"${PROJECT_BINARY_DIR}/config.h"
@@ -38,6 +40,10 @@ add_subdirectory(antares-pack)
 add_subdirectory(antares-place)
 add_subdirectory(antares-route)
 add_subdirectory(test-router)
+
+if($ENV{ANTARES_BUILD_DATA})
+	add_subdirectory(data)
+endif()
 
 # packaging
 

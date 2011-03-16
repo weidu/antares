@@ -16,4 +16,9 @@ Build/installation instructions:
  $ make
  # make install
 
+If you want to build and install the chip geometry database (needed to
+operate the software), set the environment variable ANTARES_BUILD_DATA=1
+before running cmake. This requires ISE and takes several minutes and
+several gigabytes of temporary files.
+
 Homepage: http://www.milkymist.org/fpgatools
