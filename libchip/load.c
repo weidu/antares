@@ -154,7 +154,6 @@ struct db *db_load_fd(gzFile fd)
 	w = decode_short(fd);
 	h = decode_short(fd);
 	db = db_create(n_tile_types, n_site_types, w, h);
-	db->chip_ref = decode_string(fd);
 	
 	for(i=0;i<db->n_tile_types;i++)
 		decode_tile_type(fd, &db->tile_types[i]);

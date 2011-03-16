@@ -469,10 +469,13 @@ struct db *typelist_create_db(const char *filename)
 	printf("XDLRC version: %s\n", s);
 	#endif
 	free(s);
+	
 	chip = xdlrc_get_token_noeof(t);
 	#ifdef DEBUG
 	printf("Chip: %s\n", chip);
 	#endif
+	free(chip);
+	
 	s = xdlrc_get_token_noeof(t);
 	#ifdef DEBUG
 	printf("Family: %s\n", s);
@@ -508,7 +511,6 @@ struct db *typelist_create_db(const char *filename)
 		fprintf(stderr, "Empty file!\n");
 		exit(EXIT_FAILURE);
 	}
-	db->chip_ref = chip;
 	
 	return db;
 }

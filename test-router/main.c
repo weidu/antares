@@ -59,7 +59,6 @@ int main(int argc, char *argv[])
 	db = db_load_file(dbfile);
 	printf("...done.\n\n");
 	
-	printf("Chip: %s\n", db->chip_ref);
 	printf("Grid: %dx%d\n", db->chip.w, db->chip.h);
 	printf("Wires: %d\n", db->chip.n_wires);
 	printf("Tile types: %d\n", db->n_tile_types);

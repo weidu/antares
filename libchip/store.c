@@ -129,7 +129,6 @@ void db_write_fd(struct db *db, gzFile fd)
 	encode_short(fd, db->n_site_types);
 	encode_short(fd, db->chip.w);
 	encode_short(fd, db->chip.h);
-	encode_string(fd, db->chip_ref);
 	for(i=0;i<db->n_tile_types;i++)
 		encode_tile_type(fd, &db->tile_types[i]);
 	for(i=0;i<db->n_site_types;i++)
