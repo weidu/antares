@@ -8,6 +8,8 @@
 #include <anetlist/primitives.h>
 #include <anetlist/bels.h>
 
+/* TODO: kludgy as hell... try to rewrite that at some point */
+
 static int is_external(struct anetlist_instance **instances, int n_instances, struct anetlist_instance *inst)
 {
 	int i;
@@ -34,6 +36,34 @@ static int lookup_pin_to(struct anetlist_endpoint **eps, int n_eps, struct anetl
 		}
 	}
 	return -1;
+}
+
+static int output_pin_is_driving(struct anetlist_endpoint *ep, struct anetlist_instance *inst, int pin)
+{
+	while(ep != NULL) {
+		if((ep->inst == inst) && (ep->pin == pin))
+			return 1;
+		ep = ep->next;
+	}
+	return 0;
+}
+
+static void remove_endpoint(struct anetlist_endpoint **head, struct anetlist_endpoint *ep)
+{
+	struct anetlist_endpoint *prev;
+	
+	if(ep == *head)
+		*head = (*head)->next;
+	else {
+		prev = *head;
+		while(prev->next != ep) {
+			prev = prev->next;
+			assert(prev != NULL);
+		}
+		prev->next = ep->next;
+	}
+	
+	free(ep);
 }
 
 static void replace(struct anetlist *a, struct anetlist_instance **instances, int n_instances, struct anetlist_entity *te, char **tattributes, struct anetlist_endpoint **tinputs, struct anetlist_endpoint **toutputs)
@@ -66,14 +96,32 @@ static void replace(struct anetlist *a, struct anetlist_instance **instances, in
 			ep = instances[i]->inputs[j];
 			if(ep != NULL) {
 				if(is_external(instances, n_instances, ep->inst)) {
-					extep = ep->inst->outputs[ep->pin];
-					while((extep->inst != instances[i]) || (extep->pin != j))
-						extep = extep->next;
-					extep->inst = instances[0];
-					extep->pin = lookup_pin_to(tinputs, te->n_inputs, ep->inst, ep->pin);
-					if(extep->pin == -1) {
+					struct anetlist_instance *new_instance;
+					int new_pin;
+					int add;
+					
+					new_instance = instances[0];
+					new_pin = lookup_pin_to(tinputs, te->n_inputs, ep->inst, ep->pin);
+					if(new_pin == -1) {
 						printf("failed to find tinput connecting to %p (%s:%s) / %p (%s)\n", instances[i], instances[i]->e->name, instances[i]->e->input_names[j], ep->inst, ep->inst->e->name);
 						abort();
+					}
+					
+					extep = ep->inst->outputs[ep->pin];
+					add = !output_pin_is_driving(extep, new_instance, new_pin);
+					while((extep->inst != instances[i]) || (extep->pin != j))
+						extep = extep->next;
+					if(add) {
+						extep->inst = new_instance;
+						extep->pin = new_pin;
+					} else {
+						/* We might be already driving the new instance's pin.
+						 * This is the case, for example, when two (or more) of
+						 * the initial instances are driven from the same source,
+						 * and the connection between the driven input pins of those
+						 * two instances is internal to the new instance.
+						 */
+						remove_endpoint(&ep->inst->outputs[ep->pin], extep);
 					}
 				}
 			}
@@ -302,7 +350,6 @@ static struct anetlist_instance *find_xorcy(struct anetlist_instance *cce)
 	return NULL;
 }
 
-/* TODO: kludgy as hell... try to rewrite that at some point */
 static void transform_carrychain(struct anetlist *a, struct anetlist_instance *cce)
 {
 	struct anetlist_instance *muxcy, *xorcy;

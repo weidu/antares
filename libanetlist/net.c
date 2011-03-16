@@ -179,7 +179,14 @@ void anetlist_connect(struct anetlist_instance *start, int output, struct anetli
 	ep->inst = start;
 	ep->pin = output;
 	if(end->inputs[input] != NULL) {
-		fprintf(stderr, "Two different outputs driving the same input\n");
+		ep = end->inputs[input];
+		fprintf(stderr, "Two different outputs driving the same input:\n");
+		fprintf(stderr, "Attempting to connect output %s of instance %s (%s)\n",
+			start->e->output_names[output], start->uid, start->e->name);
+		fprintf(stderr, "to input %s of instance %s (%s)\n",
+			end->e->input_names[input], end->uid, end->e->name);
+		fprintf(stderr, "but this input is already driven by output %s of instance %s (%s)\n",
+			ep->inst->e->output_names[ep->pin], ep->inst->uid, ep->inst->e->name);
 		exit(EXIT_FAILURE);
 	}
 	ep->next = NULL;
