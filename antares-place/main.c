@@ -17,6 +17,8 @@
 
 #include <config.h>
 
+#include "resmgr.h"
+
 static void help()
 {
 	banner("Placer");
@@ -70,6 +72,7 @@ int main(int argc, char *argv[])
 	char *dbname;
 	struct anetlist *a;
 	struct db *db;
+	struct resmgr *r;
 
 	outname = NULL;
 	ucfname = NULL;
@@ -115,6 +118,9 @@ int main(int argc, char *argv[])
 	db = db_load_file(dbname);
 	printf("...done\n");
 	
+	r = resmgr_new(a, db);
+	
+	resmgr_free(r);
 	db_free(db);
 	anetlist_free(a);
 	
