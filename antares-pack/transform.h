@@ -3,6 +3,6 @@
 
 #include <anetlist/net.h>
 
-void transform(struct anetlist *a);
+void transform(struct anetlist *src, struct anetlist *dst);
 
 #endif /* __TRANSFORM_H */

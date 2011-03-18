@@ -159,6 +159,7 @@ struct anetlist_instance *anetlist_instantiate(struct anetlist *a, const char *u
 	inst->uid = stralloc(uid);
 	inst->e = e;
 	anetlist_init_instance_fields(e, &inst->attributes, &inst->inputs, &inst->outputs);
+	inst->user = NULL;
 	inst->next = a->head;
 	a->head = inst;
 

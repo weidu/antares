@@ -11,6 +11,7 @@ struct anetlist_instance {
 	char **attributes;			/* < attributes of this instance */
 	struct anetlist_endpoint **inputs;	/* < array of what each input is connected to */
 	struct anetlist_endpoint **outputs;	/* < array of what each output is connected to */
+	void *user;				/* < for application use */
 	struct anetlist_instance *next;		/* < next instance in this manager */
 };
 

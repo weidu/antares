@@ -44,7 +44,7 @@ int main(int argc, char *argv[])
 	int opt;
 	char *inname;
 	char *outname;
-	struct anetlist *a;
+	struct anetlist *src, *dst;
 
 	outname = NULL;
 	while((opt = getopt(argc, argv, "ho:")) != -1) {
@@ -72,10 +72,12 @@ int main(int argc, char *argv[])
 	if(outname == NULL)
 		outname = mk_outname(inname);
 	
-	a = anetlist_parse_file(inname, entity_find_primitive);
-	transform(a);
-	anetlist_write_file(a, outname);
-	anetlist_free(a);
+	src = anetlist_parse_file(inname, entity_find_primitive);
+	dst = anetlist_new();
+	transform(src, dst);
+	anetlist_write_file(dst, outname);
+	anetlist_free(dst);
+	anetlist_free(src);
 	
 	free(outname);
 
