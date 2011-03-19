@@ -175,11 +175,32 @@ static int carrychain_measure_height(struct anetlist_instance *cce)
 	}
 }
 
+static struct anetlist_instance *get_matching_xorcy(struct anetlist_instance *cce)
+{
+	struct anetlist_endpoint *s_iep, *ci_iep;
+	struct anetlist_endpoint *s_driver, *ci_driver;
+	
+	s_iep = cce->inputs[ANETLIST_PRIMITIVE_MUXCY_S];
+	ci_iep = cce->inputs[ANETLIST_PRIMITIVE_MUXCY_CI];
+	s_driver = s_iep->inst->outputs[s_iep->pin];
+	while(s_driver != NULL) {
+		if((s_driver->inst->e == &anetlist_primitives[ANETLIST_PRIMITIVE_XORCY]) && (s_driver->pin == ANETLIST_PRIMITIVE_XORCY_LI)) {
+			ci_driver = ci_iep->inst->outputs[ci_iep->pin];
+			while(ci_driver != NULL) {
+				if((ci_driver->inst == s_driver->inst) && (ci_driver->pin == ANETLIST_PRIMITIVE_XORCY_CI))
+					return ci_driver->inst;
+				ci_driver = ci_driver->next;
+			}
+		}
+		s_driver = s_driver->next;
+	}
+	return NULL;
+}
+
 static void carrychain_enumerate(struct anetlist_instance *cce, struct anetlist_instance **muxcys, struct anetlist_instance **xorcys)
 {
 	int i;
 	struct anetlist_instance *r;
-	struct anetlist_endpoint *ep;
 	
 	if(cce->e == &anetlist_primitives[ANETLIST_PRIMITIVE_XORCY]) {
 		/* special case: chain is one XORCY alone */
@@ -192,13 +213,7 @@ static void carrychain_enumerate(struct anetlist_instance *cce, struct anetlist_
 	i = 0;
 	while(1) {
 		muxcys[i] = cce;
-		ep = cce->inputs[ANETLIST_PRIMITIVE_MUXCY_S];
-		if(ep != NULL)
-			xorcys[i] = get_driven(ep->inst->outputs[ep->pin],
-				&anetlist_primitives[ANETLIST_PRIMITIVE_XORCY],
-				ANETLIST_PRIMITIVE_XORCY_LI);
-		else
-			xorcys[i] = NULL;
+		xorcys[i] = get_matching_xorcy(cce);
 		r = get_driven(cce->outputs[ANETLIST_PRIMITIVE_MUXCY_O],
 			&anetlist_primitives[ANETLIST_PRIMITIVE_MUXCY],
 			ANETLIST_PRIMITIVE_MUXCY_CI);
@@ -231,7 +246,9 @@ static void transform_carrychain(struct anetlist *src, struct anetlist *dst, str
 	
 	bottom = carrychain_get_bottom(inst);
 	height = carrychain_measure_height(bottom);
+	#ifdef DEBUG
 	printf("packing carry chain from instance %s with %d stages [seed=%s:%s]\n", bottom->uid, height, inst->uid, inst->e->name);
+	#endif
 	n_carry4 = (height+3)/4;
 	muxcys = alloc_size(height*sizeof(struct anetlist_instance *));
 	xorcys = alloc_size(height*sizeof(struct anetlist_instance *));
@@ -246,7 +263,9 @@ static void transform_carrychain(struct anetlist *src, struct anetlist *dst, str
 		i_carry4 = i/4;
 		c4_offset = i%4;
 		if(muxcys[i] != NULL) {
+			#ifdef DEBUG
 			printf("packing MUXCY%d %s\n", i, muxcys[i]->uid);
+			#endif
 			im = create_imap(muxcys[i]);
 			im->inst = carry4s[i_carry4];
 			im->pins[ANETLIST_PRIMITIVE_MUXCY_DI] = 2*c4_offset; /* DIx */
@@ -260,7 +279,9 @@ static void transform_carrychain(struct anetlist *src, struct anetlist *dst, str
 				im->pins[ANETLIST_PRIMITIVE_MUXCY_CI] = -1;
 		}
 		if(xorcys[i] != NULL) {
+			#ifdef DEBUG
 			printf("packing XORCY%d %s\n", i, xorcys[i]->uid);
+			#endif
 			im = create_imap(xorcys[i]);
 			im->inst = carry4s[i_carry4];
 			im->pins[ANETLIST_PRIMITIVE_XORCY_LI] = 2*c4_offset+1; /* Sx */
