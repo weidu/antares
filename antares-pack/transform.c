@@ -58,22 +58,54 @@ static void match_output(struct anetlist *src, struct anetlist *dst, struct anet
 /* TODO: how to set the IOBs in simple input/output mode? */
 static void transform_ibuf(struct anetlist *src, struct anetlist *dst, struct anetlist_instance *inst)
 {
+	struct anetlist_endpoint *ep;
+	struct anetlist_instance *iport;
 	struct anetlist_instance *iobm;
 	struct imap *i;
 	
+	/* get the input port */
+	ep = inst->inputs[ANETLIST_PRIMITIVE_IBUF_I];
+	if(ep == NULL) {
+		fprintf(stderr, "Unconnected IBUF input\n");
+		exit(EXIT_FAILURE);
+	}
+	iport = ep->inst;
+	if(iport->e != &entity_input_port) {
+		fprintf(stderr, "IBUF sourced by %s instead of input port\n", iport->e->name);
+		exit(EXIT_FAILURE);
+	}
+	
 	i = create_imap(inst);
-	iobm = anetlist_instantiate(dst, inst->uid, &anetlist_bels[ANETLIST_BEL_IOBM]);
+	iobm = anetlist_instantiate(dst, iport->uid, &anetlist_bels[ANETLIST_BEL_IOBM]);
 	i->inst = iobm;
 	match_output(src, dst, iobm, ANETLIST_BEL_IOBM_I, inst, ANETLIST_PRIMITIVE_IBUF_O);
 }
 
 static void transform_obuf(struct anetlist *src, struct anetlist *dst, struct anetlist_instance *inst)
 {
+	struct anetlist_endpoint *ep;
+	struct anetlist_instance *oport;
 	struct anetlist_instance *iobm;
 	struct imap *i;
 	
+	/* get the output port */
+	ep = inst->outputs[ANETLIST_PRIMITIVE_OBUF_O];
+	if(ep == NULL) {
+		fprintf(stderr, "Unconnected OBUF output\n");
+		exit(EXIT_FAILURE);
+	}
+	if(ep->next != NULL) {
+		fprintf(stderr, "OBUF driving several primitives\n");
+		exit(EXIT_FAILURE);
+	}
+	oport = ep->inst;
+	if(oport->e != &entity_output_port) {
+		fprintf(stderr, "OBUF driving %s instead of output port\n", oport->e->name);
+		exit(EXIT_FAILURE);
+	}
+	
 	i = create_imap(inst);
-	iobm = anetlist_instantiate(dst, inst->uid, &anetlist_bels[ANETLIST_BEL_IOBM]);
+	iobm = anetlist_instantiate(dst, oport->uid, &anetlist_bels[ANETLIST_BEL_IOBM]);
 	i->inst = iobm;
 	i->pins[ANETLIST_PRIMITIVE_OBUF_I] = ANETLIST_BEL_IOBM_O;
 }
@@ -94,16 +126,33 @@ static void transform_lut(struct anetlist *src, struct anetlist *dst, struct ane
 }
 
 /* TODO: how to set the IOB in simple input mode? */
+/* TODO: how to set the BUFGMUX in BUFG mode? */
 static void transform_bufgp(struct anetlist *src, struct anetlist *dst, struct anetlist_instance *inst)
 {
-	struct anetlist_instance *iobm;
+	struct anetlist_endpoint *ep;
+	struct anetlist_instance *iport;
+	struct anetlist_instance *iobm, *bufg;
 	struct imap *i;
 
-	// TODO: insert BUFG
+	/* get the input port */
+	ep = inst->inputs[ANETLIST_PRIMITIVE_BUFGP_I];
+	if(ep == NULL) {
+		fprintf(stderr, "Unconnected BUFGP input\n");
+		exit(EXIT_FAILURE);
+	}
+	iport = ep->inst;
+	if(iport->e != &entity_input_port) {
+		fprintf(stderr, "BUFGP sourced by %s instead of input port\n", iport->e->name);
+		exit(EXIT_FAILURE);
+	}
+
+	iobm = anetlist_instantiate(dst, iport->uid, &anetlist_bels[ANETLIST_BEL_IOBM]);
+	bufg = anetlist_instantiate(dst, inst->uid, &anetlist_bels[ANETLIST_BEL_BUFGMUX]);
+	anetlist_connect(iobm, ANETLIST_PRIMITIVE_IOBM_I, bufg, ANETLIST_PRIMITIVE_BUFGMUX_I0);
+	
 	i = create_imap(inst);
-	iobm = anetlist_instantiate(dst, inst->uid, &anetlist_bels[ANETLIST_BEL_IOBM]);
-	i->inst = iobm;
-	match_output(src, dst, iobm, ANETLIST_BEL_IOBM_I, inst, ANETLIST_PRIMITIVE_BUFGP_O);
+	i->inst = bufg;
+	match_output(src, dst, bufg, ANETLIST_BEL_BUFGMUX_O, inst, ANETLIST_PRIMITIVE_BUFGP_O);
 }
 
 static struct anetlist_instance *get_driven(struct anetlist_endpoint *ep, struct anetlist_entity *e, int pin)
@@ -326,6 +375,20 @@ static void transform_fd(struct anetlist *src, struct anetlist *dst, struct anet
 	match_output(src, dst, fdre, ANETLIST_BEL_FDRE_Q, inst, ANETLIST_PRIMITIVE_FD_Q);
 }
 
+static void transform_fde(struct anetlist *src, struct anetlist *dst, struct anetlist_instance *inst)
+{
+	struct anetlist_instance *fdre;
+	struct imap *i;
+	
+	i = create_imap(inst);
+	fdre = anetlist_instantiate(dst, inst->uid, &anetlist_bels[ANETLIST_BEL_FDRE]);
+	i->inst = fdre;
+	i->pins[ANETLIST_PRIMITIVE_FDE_C] = ANETLIST_BEL_FDRE_C;
+	i->pins[ANETLIST_PRIMITIVE_FDE_CE] = ANETLIST_BEL_FDRE_CE;
+	i->pins[ANETLIST_PRIMITIVE_FDE_D] = ANETLIST_BEL_FDRE_D;
+	match_output(src, dst, fdre, ANETLIST_BEL_FDRE_Q, inst, ANETLIST_PRIMITIVE_FDE_Q);
+}
+
 static void transform_copy(struct anetlist *src, struct anetlist *dst, struct anetlist_instance *inst)
 {
 	struct anetlist_instance *new;
@@ -374,8 +437,9 @@ static void transform_inst(struct anetlist *src, struct anetlist *dst, struct an
 			case ANETLIST_PRIMITIVE_FD:
 				transform_fd(src, dst, inst);
 				break;
-//			case ANETLIST_PRIMITIVE_FDE:
-//				break;
+			case ANETLIST_PRIMITIVE_FDE:
+				transform_fde(src, dst, inst);
+				break;
 			default:
 				if(inst->e->bel)
 					transform_copy(src, dst, inst);
