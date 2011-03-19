@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
 	struct anetlist *a;
 	struct db *db;
 	struct resmgr *r;
-
+	
 	outname = NULL;
 	ucfname = NULL;
 	dbname = NULL;
