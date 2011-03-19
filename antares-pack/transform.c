@@ -295,6 +295,19 @@ static void transform_carrychain(struct anetlist *src, struct anetlist *dst, str
 		}
 	}
 	
+	for(i=0;i<height;i++) {
+		i_carry4 = i/4;
+		c4_offset = i%4;
+		if(xorcys[i] != NULL)
+			match_output(src, dst,
+				carry4s[i_carry4], 2*c4_offset,
+				xorcys[i], ANETLIST_PRIMITIVE_XORCY_O);
+		if(muxcys[i] != NULL)
+			match_output(src, dst,
+				carry4s[i_carry4], 2*c4_offset+1,
+				muxcys[i], ANETLIST_PRIMITIVE_MUXCY_O);
+	}
+	
 	free(muxcys);
 	free(xorcys);
 	free(carry4s);
