@@ -176,11 +176,10 @@ void anetlist_connect(struct anetlist_instance *start, int output, struct anetli
 {
 	struct anetlist_endpoint *ep;
 	
-	ep = alloc_type(struct anetlist_endpoint);
-	ep->inst = start;
-	ep->pin = output;
 	if(end->inputs[input] != NULL) {
 		ep = end->inputs[input];
+		if((ep->inst == start) && (ep->pin == output))
+			return; /* ignore already existing connections */
 		fprintf(stderr, "Two different outputs driving the same input:\n");
 		fprintf(stderr, "Attempting to connect output %s of instance %s (%s)\n",
 			start->e->output_names[output], start->uid, start->e->name);
@@ -190,6 +189,10 @@ void anetlist_connect(struct anetlist_instance *start, int output, struct anetli
 			ep->inst->e->output_names[ep->pin], ep->inst->uid, ep->inst->e->name);
 		exit(EXIT_FAILURE);
 	}
+	
+	ep = alloc_type(struct anetlist_endpoint);
+	ep->inst = start;
+	ep->pin = output;
 	ep->next = NULL;
 	end->inputs[input] = ep;
 	
