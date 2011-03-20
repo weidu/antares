@@ -3,6 +3,7 @@
 
 #include <anetlist/net.h>
 #include <chip/db.h>
+#include <mtwist/mtwist.h>
 
 #include "rtree.h"
 
@@ -30,6 +31,7 @@ struct resmgr_bel {
 struct resmgr {
 	struct anetlist *a;				/* < associated netlist */
 	struct db *db;					/* < associated chip database */
+	mt_state *prng;					/* < Mersenne twister PRNG */
 	int n_control_sets;				/* < number of unique control sets */
 	struct resmgr_control_set *control_sets;	/* < description of the control sets */
 	struct rtree_node *free_lut;			/* < available LUT6_2s */
@@ -43,5 +45,7 @@ struct resmgr {
 
 struct resmgr *resmgr_new(struct anetlist *a, struct db *db);
 void resmgr_free(struct resmgr *r);
+
+void resmgr_place(struct resmgr *r, struct anetlist_instance *inst, struct resmgr_bel *to);
 
 #endif /* __RESMGR_H */

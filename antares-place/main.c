@@ -18,6 +18,7 @@
 #include <config.h>
 
 #include "resmgr.h"
+#include "initial.h"
 
 static void help()
 {
@@ -119,6 +120,7 @@ int main(int argc, char *argv[])
 	printf("...done\n");
 	
 	r = resmgr_new(a, db);
+	initial_placement(r);
 	
 	resmgr_free(r);
 	db_free(db);

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <util.h>
@@ -6,6 +7,7 @@
 #include <anetlist/entities.h>
 #include <anetlist/bels.h>
 #include <chip/db.h>
+#include <mtwist/mtwist.h>
 
 #include "rtree.h"
 #include "resmgr.h"
@@ -169,6 +171,7 @@ struct resmgr *resmgr_new(struct anetlist *a, struct db *db)
 	
 	r->a = a;
 	r->db = db;
+	r->prng = alloc_type0(mt_state);
 	
 	r->n_control_sets = 0;
 	r->control_sets = NULL;
@@ -198,6 +201,7 @@ void resmgr_free(struct resmgr *r)
 {
 	int i;
 	
+	free(r->prng);
 	rtree_free(r->free_lut, free);
 	rtree_free(r->free_fd, free);
 	for(i=0;i<r->n_control_sets;i++)
@@ -209,4 +213,42 @@ void resmgr_free(struct resmgr *r)
 	rtree_free(r->used_resources, free);
 	free(r->control_sets);
 	free(r);
+}
+
+void resmgr_add_to_free_list(struct resmgr *r, struct resmgr_bel *b)
+{
+	switch(b->type) {
+		case ANETLIST_BEL_LUT6_2:
+			rtree_add(r->free_lut, b);
+			break;
+		case ANETLIST_BEL_FDRE:
+			rtree_add(r->free_fd, b);
+			break;
+		case ANETLIST_BEL_CARRY4:
+			rtree_add(r->free_carry4, b);
+			break;
+		case ANETLIST_BEL_IOBM:
+			rtree_add(r->free_iobm, b);
+			break;
+		case ANETLIST_BEL_IOBS:
+			rtree_add(r->free_iobs, b);
+			break;
+		default:
+			assert(0);
+			break;
+	}
+}
+
+void resmgr_place(struct resmgr *r, struct anetlist_instance *inst, struct resmgr_bel *to)
+{
+	/* If resource is placed, free it before */
+	if(inst->user != NULL) {
+		rtree_del(inst->user);
+		resmgr_add_to_free_list(r, inst->user);
+	}
+	/* Take the destination BEL from the free list */
+	rtree_del(to);
+	/* Register the new placement */
+	rtree_add(r->used_resources, to);
+	inst->user = to;
 }
