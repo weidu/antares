@@ -10,6 +10,7 @@
 #include <mtwist/mtwist.h>
 
 #include "rtree.h"
+#include "constraints.h"
 #include "resmgr.h"
 
 static int cmp_control_set(struct resmgr_control_set *cs1, struct resmgr_control_set *cs2)
@@ -172,6 +173,7 @@ struct resmgr *resmgr_new(struct anetlist *a, struct db *db)
 	r->a = a;
 	r->db = db;
 	r->prng = alloc_type0(mt_state);
+	mts_seed32(r->prng, 0);
 	
 	r->n_control_sets = 0;
 	r->control_sets = NULL;
@@ -187,6 +189,7 @@ struct resmgr *resmgr_new(struct anetlist *a, struct db *db)
 	r->free_iobm = rtree_new_root();
 	r->free_iobs = rtree_new_root();
 	r->used_resources = rtree_new_root();
+	r->used_resources_locked = rtree_new_root();
 	populate_resources(r, db);
 	printf("Available LUTs:\t\t\t%d\n", r->free_lut->count);
 	printf("Available FDs:\t\t\t%d\n", r->free_fd->count);
@@ -211,6 +214,7 @@ void resmgr_free(struct resmgr *r)
 	rtree_free(r->free_iobm, free);
 	rtree_free(r->free_iobs, free);
 	rtree_free(r->used_resources, free);
+	rtree_free(r->used_resources_locked, free);
 	free(r->control_sets);
 	free(r);
 }
@@ -241,14 +245,21 @@ void resmgr_add_to_free_list(struct resmgr *r, struct resmgr_bel *b)
 
 void resmgr_place(struct resmgr *r, struct anetlist_instance *inst, struct resmgr_bel *to)
 {
-	/* If resource is placed, free it before */
-	if(inst->user != NULL) {
-		rtree_del(inst->user);
-		resmgr_add_to_free_list(r, inst->user);
+	struct constraint *constraint;
+	
+	constraint = inst->user;
+	
+	/* If resource is already placed, free it before */
+	if(constraint->current != NULL) {
+		rtree_del(constraint->current);
+		resmgr_add_to_free_list(r, constraint->current);
 	}
 	/* Take the destination BEL from the free list */
 	rtree_del(to);
 	/* Register the new placement */
-	rtree_add(r->used_resources, to);
-	inst->user = to;
+	if(constraint->ctype == CONSTRAINT_LOCKED)
+		rtree_add(r->used_resources_locked, to);
+	else
+		rtree_add(r->used_resources, to);
+	constraint->current = to;
 }

@@ -15,9 +15,13 @@
 #include <chip/db.h>
 #include <chip/load.h>
 
+#include <ucfparse/ucfparse.h>
+
 #include <config.h>
 
 #include "resmgr.h"
+#include "constraints.h"
+#include "ucf.h"
 #include "initial.h"
 
 static void help()
@@ -28,7 +32,7 @@ static void help()
 	printf("Parameters are:\n");
 	printf("  -h Display this help text and exit.\n");
 	printf("  -o <output.anl> Set the name of the output file.\n");
-	printf("  -u <constraints.anl> Use the specified constraints file.\n");
+	printf("  -u <constraints.ucf> Use the specified constraints file.\n");
 	printf("  -d <db.anl.gz> Override the default chip database file.\n");
 }
 
@@ -120,8 +124,17 @@ int main(int argc, char *argv[])
 	printf("...done\n");
 	
 	r = resmgr_new(a, db);
+	constraints_init(a);
+	if(ucfname != NULL) {
+		struct ucfparse *u;
+		u = ucfparse_file(ucfname);
+		ucf_apply(r, u);
+		ucfparse_free(u);
+	}
+	constraints_infer_rel(a);
 	initial_placement(r);
 	
+	constraints_free(a);
 	resmgr_free(r);
 	db_free(db);
 	anetlist_free(a);

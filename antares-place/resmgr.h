@@ -40,7 +40,8 @@ struct resmgr {
 	struct rtree_node *free_carry4;			/* < available CARRY4s */
 	struct rtree_node *free_iobm;			/* < available IOBMs */
 	struct rtree_node *free_iobs;			/* < available IOBSs */
-	struct rtree_node *used_resources;		/* < all used resources */
+	struct rtree_node *used_resources;		/* < all used resources, non-locked */
+	struct rtree_node *used_resources_locked;	/* < all used resources, locked */
 };
 
 struct resmgr *resmgr_new(struct anetlist *a, struct db *db);
