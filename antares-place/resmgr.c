@@ -71,24 +71,7 @@ static void populate_control_sets(struct resmgr *r, struct anetlist *a)
 	}
 }
 
-enum {
-	RESMGR_SITE_SLICEX,
-	RESMGR_SITE_SLICEL,
-	RESMGR_SITE_SLICEM,
-	RESMGR_SITE_TIEOFF,
-	RESMGR_SITE_RAMB8BWER,
-	RESMGR_SITE_RAMB16BWER,
-	RESMGR_SITE_DSP48A1,
-	RESMGR_SITE_IOBM,
-	RESMGR_SITE_IOBS,
-	RESMGR_SITE_ILOGIC2,
-	RESMGR_SITE_OLOGIC2,
-	RESMGR_SITE_IODELAY2,
-	RESMGR_SITE_BUFH,
-	RESMGR_SITE_BUFGMUX,
-};
-
-static int get_site_index(const char *name)
+int resmgr_get_site_index(const char *name)
 {
 	if(strcmp(name, "SLICEX") == 0) return RESMGR_SITE_SLICEX;
 	if(strcmp(name, "SLICEL") == 0) return RESMGR_SITE_SLICEL;
@@ -107,6 +90,34 @@ static int get_site_index(const char *name)
 	return -1;
 }
 
+const char *resmgr_get_bel_name(int bel_offset)
+{
+	switch(bel_offset) {
+		case RESMGR_BEL_LUT_A: return "LUT_A";
+		case RESMGR_BEL_LUT_B: return "LUT_B";
+		case RESMGR_BEL_LUT_C: return "LUT_C";
+		case RESMGR_BEL_LUT_D: return "LUT_D";
+		case RESMGR_BEL_FD_A5: return "FD_A5";
+		case RESMGR_BEL_FD_A6: return "FD_A6";
+		case RESMGR_BEL_FD_B5: return "FD_B5";
+		case RESMGR_BEL_FD_B6: return "FD_B6";
+		case RESMGR_BEL_FD_C5: return "FD_C5";
+		case RESMGR_BEL_FD_C6: return "FD_C6";
+		case RESMGR_BEL_FD_D5: return "FD_D5";
+		case RESMGR_BEL_FD_D6: return "FD_D6";
+		case RESMGR_BEL_MUXF7_AB: return "MUXF7_AB";
+		case RESMGR_BEL_MUXF7_CD: return "MUXF7_CD";
+		case RESMGR_BEL_MUXF8: return "MUXF8";
+		case RESMGR_BEL_CARRY4: return "CARRY4";
+		
+		case RESMGR_BEL_IOBM: return "IOBM";
+		
+		case RESMGR_BEL_IOBS: return "IOBS";
+		
+		default: abort();
+	}
+}
+
 static void add_bel(struct resmgr *r, struct rtree_node *root, int type, int tile, int site_offset, int bel_offset)
 {
 	struct resmgr_bel *bel;
@@ -119,7 +130,8 @@ static void add_bel(struct resmgr *r, struct rtree_node *root, int type, int til
 	bel->tile = tile;
 	bel->site_offset = site_offset;
 	bel->bel_offset = bel_offset;
-	bel->inst = t->user;
+	bel->inst = NULL;
+	bel->next = t->user;
 	t->user = bel;
 	rtree_add(root, bel);
 }
@@ -137,24 +149,27 @@ static void populate_resources(struct resmgr *r, struct db *db)
 		tile_type = &db->tile_types[tile->type];
 		for(j=0;j<tile_type->n_sites;j++) {
 			site_name = db->site_types[tile_type->sites[j]].name;
-			site_index = get_site_index(site_name);
+			site_index = resmgr_get_site_index(site_name);
 			switch(site_index) {
 				case RESMGR_SITE_SLICEM:
 					/* fall through */
 				case RESMGR_SITE_SLICEL:
-					add_bel(r, r->free_carry4, ANETLIST_BEL_CARRY4, i, j, 0);
+					add_bel(r, r->free_carry4, ANETLIST_BEL_CARRY4, i, j, RESMGR_BEL_CARRY4);
+					add_bel(r, r->free_muxf7, ANETLIST_BEL_MUXF7, i, j, RESMGR_BEL_MUXF7_AB);
+					add_bel(r, r->free_muxf7, ANETLIST_BEL_MUXF7, i, j, RESMGR_BEL_MUXF7_CD);
+					add_bel(r, r->free_muxf8, ANETLIST_BEL_MUXF8, i, j, RESMGR_BEL_MUXF8);
 					/* fall through */
 				case RESMGR_SITE_SLICEX:
 					for(k=0;k<4;k++)
-						add_bel(r, r->free_lut, ANETLIST_BEL_LUT6_2, i, j, k);
+						add_bel(r, r->free_lut, ANETLIST_BEL_LUT6_2, i, j, RESMGR_BEL_LUT_A+k);
 					for(k=0;k<8;k++)
-						add_bel(r, r->free_fd, ANETLIST_BEL_FDRE, i, j, k);
+						add_bel(r, r->free_fd, ANETLIST_BEL_FDRE, i, j, RESMGR_BEL_FD_A5+k);
 					break;
 				case RESMGR_SITE_IOBM:
-					add_bel(r, r->free_iobm, ANETLIST_BEL_IOBM, i, j, 0);
+					add_bel(r, r->free_iobm, ANETLIST_BEL_IOBM, i, j, RESMGR_BEL_IOBM);
 					break;
 				case RESMGR_SITE_IOBS:
-					add_bel(r, r->free_iobs, ANETLIST_BEL_IOBS, i, j, 0);
+					add_bel(r, r->free_iobs, ANETLIST_BEL_IOBS, i, j, RESMGR_BEL_IOBS);
 					break;
 				default:
 					break;
@@ -181,6 +196,8 @@ struct resmgr *resmgr_new(struct anetlist *a, struct db *db)
 	printf("Number of unique control sets:\t%d\n", r->n_control_sets);
 	
 	r->free_lut = rtree_new_root();
+	r->free_muxf7 = rtree_new_root();
+	r->free_muxf8 = rtree_new_root();
 	r->free_fd = rtree_new_root();
 	r->free_fd_cs = alloc_size(r->n_control_sets*sizeof(struct rtree_node *));
 	for(i=0;i<r->n_control_sets;i++)
@@ -192,6 +209,8 @@ struct resmgr *resmgr_new(struct anetlist *a, struct db *db)
 	r->used_resources_locked = rtree_new_root();
 	populate_resources(r, db);
 	printf("Available LUTs:\t\t\t%d\n", r->free_lut->count);
+	printf("Available MUXF7s:\t\t%d\n", r->free_muxf7->count);
+	printf("Available MUXF8s:\t\t%d\n", r->free_muxf8->count);
 	printf("Available FDs:\t\t\t%d\n", r->free_fd->count);
 	printf("Available CARRY4s:\t\t%d\n", r->free_carry4->count);
 	printf("Available IOBMs:\t\t%d\n", r->free_iobm->count);
@@ -206,6 +225,8 @@ void resmgr_free(struct resmgr *r)
 	
 	free(r->prng);
 	rtree_free(r->free_lut, free);
+	rtree_free(r->free_muxf7, free);
+	rtree_free(r->free_muxf8, free);
 	rtree_free(r->free_fd, free);
 	for(i=0;i<r->n_control_sets;i++)
 		rtree_free(r->free_fd_cs[i], free);
@@ -248,11 +269,11 @@ void resmgr_place(struct resmgr *r, struct anetlist_instance *inst, struct resmg
 	struct constraint *constraint;
 	
 	if(to->inst != NULL) {
-		fprintf(stderr, "Attempting to use BEL %d in site %s for instance %s",
-			to->bel_offset, r->db->chip.tiles[to->tile].sites[to->site_offset].name,
+		fprintf(stderr, "Attempting to use BEL %s in site %s for instance %s\n",
+			resmgr_get_bel_name(to->bel_offset), r->db->chip.tiles[to->tile].sites[to->site_offset].name,
 			inst->uid);
-		fprintf(stderr, "but this BEL is already used by instance %s.\n", to->inst->uid);
-		abort();
+		fprintf(stderr, "but this BEL is already used by instance %s. Aborting.\n", to->inst->uid);
+		exit(EXIT_FAILURE);
 	}
 	
 	constraint = inst->user;
@@ -271,4 +292,7 @@ void resmgr_place(struct resmgr *r, struct anetlist_instance *inst, struct resmg
 		rtree_add(r->used_resources_locked, to);
 	constraint->current = to;
 	to->inst = inst;
+	printf("Placing instance %s (%s) to BEL %s in site %s\n", 
+		inst->uid, inst->e->name,
+		resmgr_get_bel_name(to->bel_offset), r->db->chip.tiles[to->tile].sites[to->site_offset].name);
 }

@@ -112,7 +112,7 @@ static void place_unconstrained(struct resmgr *r)
 					resmgr_place(r, inst, rtrees_random_pick(roots, 2, mts_lrand(r->prng)));
 					break;
 				default:
-					fprintf(stderr, "Unsupported BEL: %s\n", inst->e->name);
+					fprintf(stderr, "Unsupported BEL for fully unconstrained placement: %s\n", inst->e->name);
 					exit(EXIT_FAILURE);
 			}
 		}
