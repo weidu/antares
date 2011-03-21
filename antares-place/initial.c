@@ -78,7 +78,7 @@ static void place_same_slice(struct resmgr *r)
 	inst = r->a->head;
 	while(inst != NULL) {
 		constraint = inst->user;
-		if((constraint->current == NULL) && (constraint->same_slice != NULL)) {
+		if((constraint->current == NULL) && (constraint->group != NULL)) {
 			/* TODO */
 		}
 		inst = inst->next;
@@ -96,7 +96,7 @@ static void place_unconstrained(struct resmgr *r)
 	while(inst != NULL) {
 		constraint = inst->user;
 		if((constraint->current == NULL)
-		  && (constraint->same_slice == NULL)
+		  && (constraint->group == NULL)
 		  && (constraint->chain_above == NULL)
 		  && (constraint->chain_below == NULL)
 		  && (constraint->lock == NULL)
