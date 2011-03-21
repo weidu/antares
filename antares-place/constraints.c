@@ -58,7 +58,7 @@ void constraints_same_slice(struct anetlist_instance *i1, struct anetlist_instan
 		g1 = alloc_type(struct constraint_group);
 		g1->inst = i1;
 		g1->next = NULL;
-		group_append(c2->group, g2);
+		group_append(c2->group, g1);
 	} else {
 		/* both non-NULL */
 		group_append(c1->group, c2->group);
@@ -94,17 +94,26 @@ static void propagate_lock(struct anetlist *a)
 	}
 }
 
-static void same_slice_driving_lut(struct anetlist_instance *inst, struct anetlist_endpoint *ep, int require_o6)
+static void same_slice_driving_lut(struct anetlist_instance *inst, struct anetlist_endpoint *ep)
 {
 	if((ep != NULL) 
 	  && (ep->inst->e == &anetlist_bels[ANETLIST_BEL_LUT6_2])
-	  && ((!require_o6) || (ep->pin == ANETLIST_BEL_LUT6_2_O6)))
+	  && (ep->pin == ANETLIST_BEL_LUT6_2_O6))
 		constraints_same_slice(inst, ep->inst);
 }
 
 static void infer_rel_fdre(struct anetlist_instance *inst)
 {
-	same_slice_driving_lut(inst, inst->inputs[ANETLIST_BEL_FDRE_D], 0);
+	struct anetlist_endpoint *ep;
+	
+	ep = inst->inputs[ANETLIST_BEL_FDRE_D];
+	if((ep != NULL) && (
+	    (ep->inst->e == &anetlist_bels[ANETLIST_BEL_LUT6_2])
+	  ||(ep->inst->e == &anetlist_bels[ANETLIST_BEL_MUXF7])
+	  ||(ep->inst->e == &anetlist_bels[ANETLIST_BEL_MUXF8])
+	  ||(ep->inst->e == &anetlist_bels[ANETLIST_BEL_CARRY4])
+	))
+		constraints_same_slice(inst, ep->inst);
 }
 
 static void infer_rel_muxf7(struct anetlist_instance *inst)
@@ -154,10 +163,10 @@ static void infer_rel_carry4(struct anetlist_instance *inst)
 	/*
 	 * Constrain driving LUTs to the same slice.
 	 */
-	same_slice_driving_lut(inst, inst->inputs[ANETLIST_BEL_CARRY4_S0], 1);
-	same_slice_driving_lut(inst, inst->inputs[ANETLIST_BEL_CARRY4_S1], 1);
-	same_slice_driving_lut(inst, inst->inputs[ANETLIST_BEL_CARRY4_S2], 1);
-	same_slice_driving_lut(inst, inst->inputs[ANETLIST_BEL_CARRY4_S3], 1);
+	same_slice_driving_lut(inst, inst->inputs[ANETLIST_BEL_CARRY4_S0]);
+	same_slice_driving_lut(inst, inst->inputs[ANETLIST_BEL_CARRY4_S1]);
+	same_slice_driving_lut(inst, inst->inputs[ANETLIST_BEL_CARRY4_S2]);
+	same_slice_driving_lut(inst, inst->inputs[ANETLIST_BEL_CARRY4_S3]);
 }
 
 void constraints_infer_rel(struct anetlist *a)

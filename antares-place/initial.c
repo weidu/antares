@@ -103,6 +103,11 @@ static void place_unconstrained(struct resmgr *r)
 		  && (constraint->current == NULL)) {
 			bel = get_bel_index(inst->e);
 			switch(bel) {
+				case ANETLIST_BEL_GND:
+				case ANETLIST_BEL_VCC:
+				case ANETLIST_BEL_BUFGMUX:
+					/* nothing to do */
+					break;
 				case ANETLIST_BEL_LUT6_2:
 					resmgr_place(r, inst, rtrees_random_pick(&r->free_lut, 1, mts_lrand(r->prng)));
 					break;
@@ -112,7 +117,7 @@ static void place_unconstrained(struct resmgr *r)
 					resmgr_place(r, inst, rtrees_random_pick(roots, 2, mts_lrand(r->prng)));
 					break;
 				default:
-					fprintf(stderr, "Unsupported BEL for fully unconstrained placement: %s\n", inst->e->name);
+					fprintf(stderr, "Unsupported BEL for fully unconstrained placement: %s (instance %s)\n", inst->e->name, inst->uid);
 					exit(EXIT_FAILURE);
 			}
 		}
