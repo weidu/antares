@@ -5,18 +5,11 @@
 
 #include "resmgr.h"
 
-enum {
-	CONSTRAINT_NONE,		/* < no constraint */
-	CONSTRAINT_SAME_SLICE,		/* < instance must be in the same slice as instance <cobj> */
-	CONSTRAINT_ABOVE_SLICE,		/* < instance must be in the slice above that of instance <cobj> */
-	CONSTRAINT_BELOW_SLICE,		/* < instance must be in the slice below that of instance <cobj> */
-	CONSTRAINT_LOCKED		/* < instance must be located in BEL <cobj> */
-};
-
 struct constraint {
-	int ctype;			/* < type of constraint, one of CONSTRAINT_* */
-	void *cobj;			/* < object the constraint relates to */
-	struct resmgr_bel *current;	/* < current placement, NULL if unplaced */
+	struct anetlist_instance *same_slice;			/* < instance must be in the same slice as this one */
+	struct anetlist_instance *chain_above, *chain_below;	/* < instances must be placed in a column */
+	struct resmgr_bel *lock;				/* < instance is locked to this BELs */
+	struct resmgr_bel *current;				/* < current placement, NULL if unplaced */
 };
 
 void constraints_init(struct anetlist *a);

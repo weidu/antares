@@ -247,19 +247,28 @@ void resmgr_place(struct resmgr *r, struct anetlist_instance *inst, struct resmg
 {
 	struct constraint *constraint;
 	
-	constraint = inst->user;
+	if(to->inst != NULL) {
+		fprintf(stderr, "Attempting to use BEL %d in site %s for instance %s",
+			to->bel_offset, r->db->chip.tiles[to->tile].sites[to->site_offset].name,
+			inst->uid);
+		fprintf(stderr, "but this BEL is already used by instance %s.\n", to->inst->uid);
+		abort();
+	}
 	
+	constraint = inst->user;
 	/* If resource is already placed, free it before */
 	if(constraint->current != NULL) {
+		constraint->current->inst = NULL;
 		rtree_del(constraint->current);
 		resmgr_add_to_free_list(r, constraint->current);
 	}
 	/* Take the destination BEL from the free list */
 	rtree_del(to);
 	/* Register the new placement */
-	if(constraint->ctype == CONSTRAINT_LOCKED)
-		rtree_add(r->used_resources_locked, to);
-	else
+	if(constraint->lock == NULL)
 		rtree_add(r->used_resources, to);
+	else
+		rtree_add(r->used_resources_locked, to);
 	constraint->current = to;
+	to->inst = inst;
 }

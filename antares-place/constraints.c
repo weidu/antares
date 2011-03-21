@@ -13,8 +13,10 @@ void constraints_init(struct anetlist *a)
 	inst = a->head;
 	while(inst != NULL) {
 		constraint = alloc_type(struct constraint);
-		constraint->ctype = CONSTRAINT_NONE;
-		constraint->cobj = NULL;
+		constraint->same_slice = NULL;
+		constraint->chain_above = NULL;
+		constraint->chain_below = NULL;
+		constraint->lock = NULL;
 		constraint->current = NULL;
 		inst->user = constraint;
 		inst = inst->next;
@@ -26,8 +28,7 @@ void constraints_lock(struct anetlist_instance *inst, struct resmgr_bel *bel)
 	struct constraint *constraint;
 	
 	constraint = inst->user;
-	constraint->ctype = CONSTRAINT_LOCKED;
-	constraint->cobj = bel;
+	constraint->lock = bel;
 }
 
 void constraints_infer_rel(struct anetlist *a)
