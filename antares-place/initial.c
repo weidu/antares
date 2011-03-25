@@ -325,10 +325,14 @@ static void place_chains(struct resmgr *r)
 	while(inst != NULL) {
 		constraint = inst->user;
 		if((constraint->current == NULL)
-		  && ((constraint->chain_below != NULL) || (constraint->chain_above == NULL))) {
+		  && (constraint->chain_below != NULL) && (constraint->chain_above != NULL)) {
 			bottom = get_chain_bottom(inst);
 			height = get_chain_height(bottom);
 			chain_starts = resmgr_get_carry_starts(r, height, &n_chain_starts);
+			if(n_chain_starts == 0) {
+				fprintf(stderr, "Out of carry chain start sites (height=%d)\n", height);
+				exit(EXIT_FAILURE);
+			}
 			site = chain_starts[mts_lrand(r->prng) % n_chain_starts];
 			free(chain_starts);
 			tile = site->tile;
