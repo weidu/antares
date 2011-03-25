@@ -20,11 +20,13 @@ void *rtrees_random_pick(struct rtree_node **roots, int n_roots, unsigned int rn
 	total_count = 0;
 	for(i=0;i<n_roots;i++)
 		total_count += roots[i]->count;
+	if(total_count == 0)
+		return NULL;
 	rnd %= total_count;
 	i = 0;
 	while(rnd >= roots[i]->count) {
-		i++;
 		rnd -= roots[i]->count;
+		i++;
 	}
 	return rtree_get(roots[i], rnd);
 }
@@ -160,7 +162,6 @@ static void place_slice(struct resmgr *r, struct anetlist_instance *inst, struct
 	int existing;
 	int i;
 
-	
 	/* enumerate group */
 	constraint = inst->user;
 	g = constraint->group;
@@ -200,14 +201,18 @@ static void place_slice(struct resmgr *r, struct anetlist_instance *inst, struct
 	
 	/* if site is not specified, pick one */
 	if(s == NULL) {
-		struct rtree_node *pools[RESMGR_MAX_POOLS];
+		struct rtree_node *pools[2*RESMGR_MAX_POOLS];
 		int npools;
+		int allow_x;
 		
-		npools = resmgr_get_slice_pools(r, control_set, &combine, pools);
+		allow_x = (e.muxf7_count == 0) && (e.muxf8_count == 0);
+		npools = resmgr_get_slice_pools(r, control_set, &combine, allow_x, pools);
+		if(control_set != -1)
+			npools += resmgr_get_slice_pools(r, -1, &combine, allow_x, &pools[npools]);
 		s = rtrees_random_pick(pools, npools, mts_lrand(r->prng));
-		free(pools);
 		if(s == NULL) {
-			fprintf(stderr, "Failed to find slice\n");
+			fprintf(stderr, "Failed to find slice for LUT=%d FF6=%d CARRY=%d\n",
+				combine.used_lut, combine.used_ff6, combine.used_carry);
 			exit(EXIT_FAILURE);
 		}
 	}
@@ -215,35 +220,39 @@ static void place_slice(struct resmgr *r, struct anetlist_instance *inst, struct
 	if(e.muxf8_count) {
 		assert(e.muxf7_count == 2);
 		assert(!e.carry4_count);
-		resmgr_place(r, e.muxf8[0], s, RESMGR_BEL_SLICE_MUXF8);
-		resmgr_place(r, e.muxf8[0]->inputs[ANETLIST_BEL_MUXF8_I1]->inst, s, RESMGR_BEL_SLICE_MUXF7AB);
-		resmgr_place(r, e.muxf8[0]->inputs[ANETLIST_BEL_MUXF8_I0]->inst, s, RESMGR_BEL_SLICE_MUXF7CD);
 		resmgr_place(r, e.muxf8[0]->inputs[ANETLIST_BEL_MUXF8_I1]->inst->inputs[ANETLIST_BEL_MUXF7_I0]->inst,
 			s, RESMGR_BEL_SLICE_LUTB);
 		resmgr_place(r, e.muxf8[0]->inputs[ANETLIST_BEL_MUXF8_I1]->inst->inputs[ANETLIST_BEL_MUXF7_I1]->inst,
 			s, RESMGR_BEL_SLICE_LUTA);
+		resmgr_place(r, e.muxf8[0]->inputs[ANETLIST_BEL_MUXF8_I1]->inst, s, RESMGR_BEL_SLICE_MUXF7AB);
 		resmgr_place(r, e.muxf8[0]->inputs[ANETLIST_BEL_MUXF8_I0]->inst->inputs[ANETLIST_BEL_MUXF7_I0]->inst,
 			s, RESMGR_BEL_SLICE_LUTD);
 		resmgr_place(r, e.muxf8[0]->inputs[ANETLIST_BEL_MUXF8_I0]->inst->inputs[ANETLIST_BEL_MUXF7_I1]->inst,
 			s, RESMGR_BEL_SLICE_LUTC);
+		resmgr_place(r, e.muxf8[0]->inputs[ANETLIST_BEL_MUXF8_I0]->inst, s, RESMGR_BEL_SLICE_MUXF7CD);
+		resmgr_place(r, e.muxf8[0], s, RESMGR_BEL_SLICE_MUXF8);
 	} else if(e.muxf7_count) {
 		assert(e.muxf7_count == 1);
 		assert(!e.carry4_count);
 		if((s->inst[RESMGR_BEL_SLICE_LUTA] != NULL)||(s->inst[RESMGR_BEL_SLICE_LUTB] != NULL)) {
-			resmgr_place(r, e.muxf7[0], s, RESMGR_BEL_SLICE_MUXF7CD);
 			resmgr_place(r, e.muxf7[0]->inputs[ANETLIST_BEL_MUXF7_I0]->inst, s, RESMGR_BEL_SLICE_LUTD);
 			resmgr_place(r, e.muxf7[0]->inputs[ANETLIST_BEL_MUXF7_I1]->inst, s, RESMGR_BEL_SLICE_LUTC);
+			resmgr_place(r, e.muxf7[0], s, RESMGR_BEL_SLICE_MUXF7CD);
 		} else {
-			resmgr_place(r, e.muxf7[0], s, RESMGR_BEL_SLICE_MUXF7AB);
 			resmgr_place(r, e.muxf7[0]->inputs[ANETLIST_BEL_MUXF7_I0]->inst, s, RESMGR_BEL_SLICE_LUTB);
 			resmgr_place(r, e.muxf7[0]->inputs[ANETLIST_BEL_MUXF7_I1]->inst, s, RESMGR_BEL_SLICE_LUTA);
+			resmgr_place(r, e.muxf7[0], s, RESMGR_BEL_SLICE_MUXF7AB);
 		}
 	} else if(e.carry4_count) {
+		if(e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S1] != NULL)
+			resmgr_place(r, e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S1]->inst, s, RESMGR_BEL_SLICE_LUTB);
+		if(e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S0] != NULL)
+			resmgr_place(r, e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S0]->inst, s, RESMGR_BEL_SLICE_LUTA);
+		if(e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S3] != NULL)
+			resmgr_place(r, e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S3]->inst, s, RESMGR_BEL_SLICE_LUTD);
+		if(e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S2] != NULL)
+			resmgr_place(r, e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S2]->inst, s, RESMGR_BEL_SLICE_LUTC);
 		resmgr_place(r, e.carry4[0], s, RESMGR_BEL_SLICE_CARRY4);
-		resmgr_place(r, e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S1]->inst, s, RESMGR_BEL_SLICE_LUTB);
-		resmgr_place(r, e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S0]->inst, s, RESMGR_BEL_SLICE_LUTA);
-		resmgr_place(r, e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S3]->inst, s, RESMGR_BEL_SLICE_LUTD);
-		resmgr_place(r, e.carry4[0]->inputs[ANETLIST_BEL_CARRY4_S2]->inst, s, RESMGR_BEL_SLICE_LUTC);
 	} else {
 		existing = 0;
 		for(i=RESMGR_BEL_SLICE_LUTA;i<=RESMGR_BEL_SLICE_LUTD;i++)

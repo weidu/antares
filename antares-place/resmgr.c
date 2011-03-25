@@ -293,16 +293,19 @@ int resmgr_encode_slice_state(struct resmgr_slice_state *ss)
 	
 	assert(ss->used_lut < 5);
 	assert(ss->used_ff6 < 5);
-	r = ss->used_lut*5+ss->used_ff6;
-	if(ss->used_carry) {
-		assert(ss->used_lut == 4);
-		r += 5;
+	if(ss->used_carry)
+		r = 5*5+ss->used_ff6;
+	else
+		r = ss->used_lut*5+ss->used_ff6;
+	if(r >= RESMGR_SLICE_STATE_COUNT) {
+		fprintf(stderr, "Invalide slice state: CARRY=%d LUT=%d FF6=%d\n",
+			ss->used_carry, ss->used_lut, ss->used_ff6);
+		abort();
 	}
-	assert(r < RESMGR_SLICE_STATE_COUNT);
 	return r;
 }
 
-int resmgr_get_slice_pools(struct resmgr *r, int control_set, struct resmgr_slice_state *combine, struct rtree_node **pools)
+int resmgr_get_slice_pools(struct resmgr *r, int control_set, struct resmgr_slice_state *combine, int allow_x, struct rtree_node **pools)
 {
 	struct resmgr_control_set_resources *resources;
 	int count;
@@ -319,8 +322,8 @@ int resmgr_get_slice_pools(struct resmgr *r, int control_set, struct resmgr_slic
 	count = 0;
 	max_used_lut = 4 - combine->used_lut;
 	max_used_ff6 = 4 - combine->used_ff6;
-	for(i=0;i<max_used_ff6;i++)
-		for(j=0;j<max_used_lut;j++) {
+	for(i=0;i<=max_used_ff6;i++)
+		for(j=0;j<=max_used_lut;j++) {
 			ss.used_lut = i;
 			ss.used_ff6 = j;
 			if(combine->used_carry) {
@@ -331,7 +334,8 @@ int resmgr_get_slice_pools(struct resmgr *r, int control_set, struct resmgr_slic
 			} else {
 				ss.used_carry = 0;
 				se = resmgr_encode_slice_state(&ss);
-				pools[count++] = resources->slicex[se];
+				if(allow_x)
+					pools[count++] = resources->slicex[se];
 				pools[count++] = resources->slicel[se];
 				pools[count++] = resources->slicem[se];
 				ss.used_carry = 1;

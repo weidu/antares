@@ -72,7 +72,7 @@ struct resmgr_slice_state {
 	int used_carry; /* < 1 if slice is in carry chain mode. This implies used_lut=4. */
 };
 
-#define RESMGR_SLICE_STATE_COUNT (5*4+5)
+#define RESMGR_SLICE_STATE_COUNT (5*5+4+1)
 
 struct resmgr_control_set_resources {
 	struct rtree_node **slicex; /* < table of the list of SLICEX in each state */
@@ -106,7 +106,7 @@ int resmgr_get_site_index3(struct resmgr *r, struct resmgr_site *s);
 
 #define RESMGR_MAX_POOLS (3*RESMGR_SLICE_STATE_COUNT)
 
-int resmgr_get_slice_pools(struct resmgr *r, int control_set, struct resmgr_slice_state *combine, struct rtree_node **pools);
+int resmgr_get_slice_pools(struct resmgr *r, int control_set, struct resmgr_slice_state *combine, int allow_x, struct rtree_node **pools);
 struct resmgr_site *resmgr_find_carry_in_tile(struct resmgr *r, int i);
 struct resmgr_site **resmgr_get_carry_starts(struct resmgr *r, int height, int *n);
 
