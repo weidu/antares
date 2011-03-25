@@ -72,26 +72,13 @@ void constraints_same_slice(struct anetlist_instance *i1, struct anetlist_instan
 	}
 }
 
-void constraints_lock(struct anetlist_instance *inst, struct resmgr_bel *bel)
+void constraints_lock(struct anetlist_instance *inst, struct resmgr_site *s, int bel_index)
 {
 	struct constraint *constraint;
 	
 	constraint = inst->user;
-	constraint->lock = bel;
-}
-
-static void propagate_lock(struct anetlist *a)
-{
-	struct anetlist_instance *inst;
-	struct constraint *constraint;
-
-	inst = a->head;
-	while(inst != NULL) {
-		constraint = inst->user;
-		if(constraint->lock != NULL) {
-		}
-		inst = inst->next;
-	}
+	constraint->lock = s;
+	constraint->lock_bel_index = bel_index;
 }
 
 static void same_slice_driving_lut(struct anetlist_instance *inst, struct anetlist_endpoint *ep)
@@ -106,6 +93,7 @@ static void infer_rel_fdre(struct anetlist_instance *inst)
 {
 	struct anetlist_endpoint *ep;
 	
+	/* TODO: check that all other existing FDREs in the group use the same control set */
 	ep = inst->inputs[ANETLIST_BEL_FDRE_D];
 	if((ep != NULL) && (
 	    (ep->inst->e == &anetlist_bels[ANETLIST_BEL_LUT6_2])
@@ -185,7 +173,6 @@ void constraints_infer_rel(struct anetlist *a)
 			infer_rel_carry4(inst);
 		inst = inst->next;
 	}
-	propagate_lock(a);
 }
 
 static void free_group(struct constraint_group *head)

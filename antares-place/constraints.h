@@ -13,13 +13,15 @@ struct constraint_group {
 struct constraint {
 	struct constraint_group *group;			/* < instances must be placed in the same slice */
 	struct anetlist_instance *chain_above, *chain_below;	/* < instances must be placed in a column */
-	struct resmgr_bel *lock;				/* < instance is locked to this BELs */
-	struct resmgr_bel *current;				/* < current placement, NULL if unplaced */
+	struct resmgr_site *lock;				/* < instance is locked to this BELs */
+	int lock_bel_index;
+	struct resmgr_site *current;				/* < current placement, NULL if unplaced */
+	int current_bel_index;
 };
 
 void constraints_init(struct anetlist *a);
 void constraints_same_slice(struct anetlist_instance *i1, struct anetlist_instance *i2);
-void constraints_lock(struct anetlist_instance *inst, struct resmgr_bel *bel);
+void constraints_lock(struct anetlist_instance *inst, struct resmgr_site *s, int bel_index);
 void constraints_infer_rel(struct anetlist *a);
 void constraints_free(struct anetlist *a);
 

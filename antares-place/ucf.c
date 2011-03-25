@@ -12,28 +12,28 @@
 #include "rtree.h"
 #include "ucf.h"
 
-static struct resmgr_bel *find_site(struct db *db, struct rtree_node *root, const char *name)
+static struct resmgr_site *find_site(struct db *db, struct rtree_node *root, const char *name)
 {
 	int i;
-	struct resmgr_bel *b;
+	struct resmgr_site *s;
 	
 	/* inefficient way of iterating the rtree, but there are few IOBs... */
 	for(i=0;i<root->count;i++) {
-		b = rtree_get(root, i);
-		if(strcmp(db->chip.tiles[b->tile].sites[b->site_offset].name, name) == 0)
-			return b;
+		s = rtree_get(root, i);
+		if(strcmp(db->chip.tiles[s->tile].sites[s->site_offset].name, name) == 0)
+			return s;
 	}
 	return NULL;
 }
 
-static struct resmgr_bel *find_iob(struct resmgr *r, const char *name)
+static struct resmgr_site *find_iob(struct resmgr *r, const char *name)
 {
-	struct resmgr_bel *b;
+	struct resmgr_site *s;
 	
-	b = find_site(r->db, r->free_iobm, name);
-	if(b == NULL)
-		b = find_site(r->db, r->free_iobs, name);
-	return b;
+	s = find_site(r->db, r->free_iobm, name);
+	if(s == NULL)
+		s = find_site(r->db, r->free_iobs, name);
+	return s;
 }
 
 void ucf_apply(struct resmgr *r, struct ucfparse *u)
@@ -41,7 +41,7 @@ void ucf_apply(struct resmgr *r, struct ucfparse *u)
 	struct ucfparse_net *n;
 	struct ucfparse_attr *attrs;
 	struct anetlist_instance *inst;
-	struct resmgr_bel *b;
+	struct resmgr_site *s;
 	
 	n = u->nets;
 	while(n != NULL) {
@@ -64,12 +64,12 @@ void ucf_apply(struct resmgr *r, struct ucfparse *u)
 		while(attrs != NULL) {
 			switch(attrs->attr) {
 				case UCF_ATTR_LOC:
-				 	b = find_iob(r, attrs->value);
-				 	if(b == NULL) {
-				 		fprintf(stderr, "Failed to find IOB site %s\n", attrs->value);
-				 		exit(EXIT_FAILURE);
+					s = find_iob(r, attrs->value);
+					if(s == NULL) {
+						fprintf(stderr, "Failed to find IOB site %s\n", attrs->value);
+						exit(EXIT_FAILURE);
 				 	}
-					constraints_lock(inst, b);
+					constraints_lock(inst, s, 0);
 					break;
 				case UCF_ATTR_IOSTANDARD:
 					anetlist_set_attribute(inst, 
