@@ -42,6 +42,7 @@ add_subdirectory(antares-pack)
 add_subdirectory(antares-place)
 add_subdirectory(antares-route)
 add_subdirectory(test-router)
+add_subdirectory(test-sitelist)
 
 if($ENV{ANTARES_BUILD_DATA})
 	add_subdirectory(data)
