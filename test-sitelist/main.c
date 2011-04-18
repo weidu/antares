@@ -8,15 +8,15 @@
 
 static void list_sites(struct db *db)
 {
-	int clexm, clelm;
+	int clexm, clexl;
 	int i;
 	struct tile *tile;
 	
 	clexm = db_resolve_tile(db, "CLEXM");
-	clelm = db_resolve_tile(db, "CLELM");
+	clexl = db_resolve_tile(db, "CLEXL");
 	for(i=0;i<db->chip.w*db->chip.h;i++) {
 		tile = &db->chip.tiles[i];
-		if((tile->type == clexm) || (tile->type == clelm))
+		if((tile->type == clexm) || (tile->type == clexl))
 			printf("%s_X%dY%d %s\n", db->tile_types[tile->type].name, tile->x, tile->y,
 				tile->sites[0].name);
 	}
